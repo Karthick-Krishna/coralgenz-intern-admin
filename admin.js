@@ -22,6 +22,9 @@ import {
 import { 
   getAuth, 
   createUserWithEmailAndPassword, 
+  signInWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
   updateProfile 
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
@@ -45,12 +48,17 @@ const _cgzVaultInit = (() => {
   return JSON.parse(_buf);
 })();
 
-// Initialize Firebase App, Firestore Database & Secondary Auth Worker
+// Initialize Firebase App, Firestore Database & Auth Services
 const app = initializeApp(_cgzVaultInit);
 const db = getFirestore(app);
+const adminAuth = getAuth(app);
 
+// Secondary Auth Worker for Provisioning Candidate Accounts (avoids session conflicts)
 const authWorkerApp = initializeApp(_cgzVaultInit, "CoralgenzAuthWorker");
 const authWorker = getAuth(authWorkerApp);
+
+// Root Administrator Policy: Strictly Restricted to karthick@coralgenz.co.in
+const AUTHORIZED_ADMIN_EMAIL = "karthick@coralgenz.co.in";
 
 // Global State
 let currentStudentList = [];
@@ -69,6 +77,140 @@ const DEFAULT_COURSE_FORMS = {
 };
 
 let activeFormsMap = { ...DEFAULT_COURSE_FORMS };
+
+// ==========================================
+// 1B. ADMIN AUTHENTICATION GATEWAY CONTROLLER
+// ==========================================
+const adminAuthGate = document.getElementById("admin-auth-gate");
+const adminLoginForm = document.getElementById("admin-login-form");
+const adminAuthEmail = document.getElementById("admin-auth-email");
+const adminAuthPassword = document.getElementById("admin-auth-password");
+const adminLoginStatusAlert = document.getElementById("admin-login-status-alert");
+const btnAdminLoginSubmit = document.getElementById("btn-admin-login-submit");
+const btnAdminLogout = document.getElementById("btn-admin-logout");
+
+function showAdminLoginAlert(type, msg) {
+  if (!adminLoginStatusAlert) return;
+  adminLoginStatusAlert.className = `admin-status-box status-${type}`;
+  adminLoginStatusAlert.innerHTML = `<div>${msg}</div>`;
+  adminLoginStatusAlert.style.display = "block";
+}
+
+async function handleAdminLogin(e) {
+  if (e) e.preventDefault();
+
+  const inputEmail = (adminAuthEmail?.value || "").trim().toLowerCase();
+  const inputPassword = (adminAuthPassword?.value || "").trim();
+
+  if (!inputEmail || !inputPassword) {
+    showAdminLoginAlert("error", "Please enter both Administrator Email and Password.");
+    return;
+  }
+
+  // Strict Policy Check: Only karthick@coralgenz.co.in permitted
+  if (inputEmail !== AUTHORIZED_ADMIN_EMAIL.toLowerCase()) {
+    showAdminLoginAlert("error", `⛔ <strong>Access Denied!</strong><br>The email <code>${inputEmail}</code> is not authorized.<br>Only root administrator (<code>${AUTHORIZED_ADMIN_EMAIL}</code>) is permitted to access this Command Center.`);
+    return;
+  }
+
+  if (inputPassword.length < 6) {
+    showAdminLoginAlert("error", "Password must be at least 6 characters long.");
+    return;
+  }
+
+  if (btnAdminLoginSubmit) {
+    btnAdminLoginSubmit.disabled = true;
+    btnAdminLoginSubmit.innerHTML = `<span>Verifying Admin Credentials... ⏳</span>`;
+  }
+
+  try {
+    let authUser = null;
+
+    // 1. Attempt Sign In via Firebase Auth
+    try {
+      const userCred = await signInWithEmailAndPassword(adminAuth, inputEmail, inputPassword);
+      authUser = userCred.user;
+    } catch (authErr) {
+      // If administrator account does not yet exist in Firebase Auth, automatically provision/create it with the provided password
+      if (authErr.code === "auth/user-not-found" || authErr.code === "auth/invalid-credential" || authErr.code === "auth/invalid-email") {
+        try {
+          const createCred = await createUserWithEmailAndPassword(adminAuth, inputEmail, inputPassword);
+          authUser = createCred.user;
+          try {
+            await updateProfile(authUser, { displayName: "Coralgenz Administrator" });
+          } catch(pErr) {}
+        } catch (createErr) {
+          throw authErr;
+        }
+      } else {
+        throw authErr;
+      }
+    }
+
+    // Store verified session
+    sessionStorage.setItem("cgz_admin_session", inputEmail);
+
+    if (adminAuthGate) {
+      adminAuthGate.style.display = "none";
+    }
+
+    showToast(`👑 Welcome back, Administrator (${inputEmail})!`);
+  } catch (err) {
+    console.error("Admin Login Error:", err);
+    let errMsg = "Invalid administrator password. Please check your credentials.";
+    if (err.code === "auth/wrong-password" || err.code === "auth/invalid-credential") {
+      errMsg = "Incorrect administrator password. Please try again.";
+    } else if (err.message) {
+      errMsg = err.message;
+    }
+    showAdminLoginAlert("error", `❌ <strong>Authentication Failed:</strong> ${errMsg}`);
+  } finally {
+    if (btnAdminLoginSubmit) {
+      btnAdminLoginSubmit.disabled = false;
+      btnAdminLoginSubmit.innerHTML = `<span>🔐 Authenticate & Enter Dashboard</span>`;
+    }
+  }
+}
+
+async function handleAdminLogout() {
+  if (!confirm("Are you sure you want to sign out of the Admin Command Center?")) return;
+
+  try {
+    await signOut(adminAuth);
+  } catch (e) {}
+
+  sessionStorage.removeItem("cgz_admin_session");
+
+  if (adminAuthPassword) adminAuthPassword.value = "";
+  if (adminLoginStatusAlert) adminLoginStatusAlert.style.display = "none";
+  if (adminAuthGate) adminAuthGate.style.display = "flex";
+
+  showToast("🚪 Signed out of Admin Command Center.");
+}
+
+function checkAdminAuthSession() {
+  const sessionUser = sessionStorage.getItem("cgz_admin_session");
+  if (sessionUser && sessionUser.toLowerCase() === AUTHORIZED_ADMIN_EMAIL.toLowerCase()) {
+    if (adminAuthGate) adminAuthGate.style.display = "none";
+  } else {
+    if (adminAuthGate) adminAuthGate.style.display = "flex";
+  }
+
+  onAuthStateChanged(adminAuth, (user) => {
+    if (user && user.email && user.email.toLowerCase() === AUTHORIZED_ADMIN_EMAIL.toLowerCase()) {
+      sessionStorage.setItem("cgz_admin_session", user.email);
+      if (adminAuthGate) adminAuthGate.style.display = "none";
+    }
+  });
+}
+
+if (adminLoginForm) {
+  adminLoginForm.addEventListener("submit", handleAdminLogin);
+}
+
+if (btnAdminLogout) {
+  btnAdminLogout.addEventListener("click", handleAdminLogout);
+}
 
 // ==========================================
 // 2. DOM ELEMENTS - AUTH & USERS
@@ -1364,6 +1506,7 @@ if (btnCopyPublicLink) {
 // 10. INITIALIZATION
 // ==========================================
 function initAdminApp() {
+  checkAdminAuthSession();
   initTabNavigation();
   updateStudentPreview();
   loadCourseFormsConfig();
