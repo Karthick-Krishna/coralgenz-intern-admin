@@ -15,8 +15,8 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
   
-  <!-- Main Admin CSS -->
-  <link rel="stylesheet" href="admin.css">
+  <!-- Main Admin CSS (with cache-bust token) -->
+  <link rel="stylesheet" href="admin.css?v=2026.3">
 
   <script>
     // ========================================================
@@ -32,18 +32,12 @@
 
       // 2. Block Inspect & DevTools Keyboard Shortcuts
       document.addEventListener("keydown", function(e) {
-        // F12
         if (e.key === "F12" || e.keyCode === 123) {
           e.preventDefault();
           e.stopPropagation();
           return false;
         }
 
-        // Ctrl+Shift+I / Cmd+Opt+I (Inspect)
-        // Ctrl+Shift+J / Cmd+Opt+J (Console)
-        // Ctrl+Shift+C / Cmd+Opt+C (Element Inspector)
-        // Ctrl+U / Cmd+Opt+U (View Source)
-        // Ctrl+S / Cmd+S (Save Page)
         const isCmdOrCtrl = e.ctrlKey || e.metaKey;
         const key = (e.key || "").toLowerCase();
         
@@ -98,92 +92,90 @@
 <body class="admin-theme" oncontextmenu="return false;">
 
   <!-- ========================================================= -->
-  <!-- HIGH SECURITY ADMIN AUTHENTICATION GATEWAY (RESTRICTED TO karthick@coralgenz.co.in) -->
+  <!-- HIGH-SECURITY ADMIN AUTHENTICATION GATEWAY                -->
   <!-- ========================================================= -->
   <div class="admin-auth-gate-overlay" id="admin-auth-gate">
     <div class="admin-gate-card">
       <div class="admin-gate-header">
-        <div class="admin-gate-shield-wrap">
-          <img src="coralgenz-logo.png" onerror="this.src='coralgenz-logo.png'" alt="Coralgenz Global" class="admin-gate-logo">
-          <div class="shield-pulse-ring"></div>
-        </div>
+        <img src="coralgenz-logo.png" onerror="this.src='coralgenz-logo.png'" alt="Coralgenz Global" class="admin-gate-logo">
         <div>
-          <span class="admin-gate-badge">🛡️ Root Admin Cryptographic Shield</span>
+          <span class="admin-gate-badge">🛡️ Encrypted Enterprise Gateway</span>
           <h1 class="admin-gate-title">Admin Command Center</h1>
-          <p class="admin-gate-sub">High-Security Verification Gateway. Only authorized root administrator (<code>karthick@coralgenz.co.in</code>) is permitted access.</p>
+          <p class="admin-gate-sub">Access is strictly restricted to root administrator (<strong style="color: #38bdf8;">karthick@coralgenz.co.in</strong>). Sign in to unlock dashboard controls.</p>
         </div>
       </div>
 
       <form class="admin-gate-form" id="admin-login-form">
         <div class="admin-form-group">
-          <label for="admin-auth-email">Administrator Identity <span class="req">*</span></label>
-          <div class="input-with-icon">
-            <span class="input-icon">👑</span>
-            <input type="email" id="admin-auth-email" value="karthick@coralgenz.co.in" placeholder="karthick@coralgenz.co.in" required autocomplete="email" readonly style="background: rgba(15, 23, 42, 0.6); color: #38bdf8; font-family: var(--font-mono); font-weight: 600; cursor: default;">
+          <label for="admin-auth-email">Administrator Email <span class="req">*</span></label>
+          <div class="input-with-icon-wrap" style="position: relative; display: flex; align-items: center;">
+            <span style="position: absolute; left: 0.9rem; color: #94a3b8; font-size: 1rem;">📧</span>
+            <input type="email" id="admin-auth-email" value="karthick@coralgenz.co.in" placeholder="karthick@coralgenz.co.in" required autocomplete="email" style="padding-left: 2.6rem;">
           </div>
-          <span class="form-hint">Strict Access Restriction: karthick@coralgenz.co.in</span>
+          <span class="form-hint" style="color: #38bdf8; font-size: 0.74rem;">🔒 Authorized ID: karthick@coralgenz.co.in</span>
         </div>
 
         <div class="admin-form-group">
-          <label for="admin-auth-password">Admin Master Password <span class="req">*</span></label>
-          <div class="admin-pwd-input-wrap">
-            <span class="input-icon">🔑</span>
-            <input type="password" id="admin-auth-password" placeholder="Enter administrator master password" required autocomplete="current-password">
-            <button type="button" class="btn-gate-pwd-toggle" id="btn-admin-pwd-toggle" title="Show/Hide Password">👁️</button>
+          <label for="admin-auth-password">Admin Password <span class="req">*</span></label>
+          <div class="input-with-icon-wrap" style="position: relative; display: flex; align-items: center;">
+            <span style="position: absolute; left: 0.9rem; color: #94a3b8; font-size: 1rem;">🔑</span>
+            <input type="password" id="admin-auth-password" placeholder="Enter your administrator password" required autocomplete="current-password" style="padding-left: 2.6rem; padding-right: 2.8rem;">
+            <button type="button" id="btn-toggle-admin-pwd" title="Toggle Show/Hide Password" style="position: absolute; right: 0.75rem; background: none; border: none; font-size: 1.1rem; cursor: pointer; color: #94a3b8; padding: 0.2rem;">👁️</button>
           </div>
-        </div>
-
-        <div class="admin-gate-options-row">
-          <label class="remember-device-label">
-            <input type="checkbox" id="admin-remember-device" checked>
-            <span>Keep signed in on this secure device</span>
-          </label>
         </div>
 
         <div id="admin-login-status-alert" class="admin-status-box" style="display: none;"></div>
 
-        <button type="submit" class="btn-admin-primary btn-gate-submit" id="btn-admin-login-submit">
-          <span>🔐 Authenticate & Enter Dashboard</span>
-          <span>⚡</span>
+        <button type="submit" class="btn-admin-primary" id="btn-admin-login-submit" style="width: 100%; justify-content: center; padding: 0.95rem 1.5rem; font-size: 1rem; margin-top: 0.5rem;">
+          <span>🔐 Authenticate & Unlock Dashboard</span>
         </button>
+
+        <div style="text-align: center; margin-top: 0.5rem; color: #64748b; font-size: 0.72rem; display: flex; align-items: center; justify-content: center; gap: 0.4rem;">
+          <span>🔒 256-Bit Cryptographic Tunnel</span> • <span>Firebase Identity Cloud</span>
+        </div>
       </form>
     </div>
   </div>
 
-  <!-- Top Admin Navbar -->
-  <header class="admin-navbar">
-    <div class="admin-nav-container">
-      <div class="admin-brand">
-        <img src="coralgenz-logo.png" onerror="this.src='coralgenz-logo.png'" alt="Coralgenz Global" class="admin-brand-logo">
-        <div>
-          <div class="admin-brand-title">Coralgenz Global</div>
-          <div class="admin-brand-badge">⚡ Admin Command Center • User Auth, Course Routing & QR Generator</div>
+  <!-- ========================================================= -->
+  <!-- PROTECTED ADMIN DASHBOARD ROOT (UNLOCKED UPON AUTH)      -->
+  <!-- ========================================================= -->
+  <div id="admin-dashboard-root" style="display: none;">
+
+    <!-- Top Admin Navbar -->
+    <header class="admin-navbar">
+      <div class="admin-nav-container">
+        <div class="admin-brand">
+          <img src="coralgenz-logo.png" onerror="this.src='coralgenz-logo.png'" alt="Coralgenz Global" class="admin-brand-logo">
+          <div>
+            <div class="admin-brand-title">Coralgenz Global</div>
+            <div class="admin-brand-badge">⚡ Admin Command Center • User Auth, Course Routing & QR Generator</div>
+          </div>
+        </div>
+
+        <div class="admin-nav-actions">
+          <div class="firebase-status-pill" id="firebase-status-indicator">
+            <span class="status-dot-pulse"></span>
+            <span id="firebase-status-text">Firebase Live</span>
+          </div>
+
+          <div class="admin-user-pill" id="admin-user-pill">
+            <span class="user-avatar-dot">👑</span>
+            <span class="admin-email-text">karthick@coralgenz.co.in</span>
+          </div>
+
+          <button type="button" class="btn-admin-logout" id="btn-admin-logout" title="Sign Out">
+            <span>🚪 Sign Out</span>
+          </button>
         </div>
       </div>
+    </header>
 
-      <div class="admin-nav-actions">
-        <div class="firebase-status-pill" id="firebase-status-indicator">
-          <span class="status-dot-pulse"></span>
-          <span id="firebase-status-text">Firebase Live</span>
-        </div>
-
-        <div class="admin-user-pill" id="admin-user-pill">
-          <span class="user-avatar-dot">👑</span>
-          <span class="admin-email-text">karthick@coralgenz.co.in</span>
-        </div>
-
-        <button type="button" class="btn-admin-logout" id="btn-admin-logout" title="Sign Out">
-          <span>🚪 Sign Out</span>
-        </button>
-      </div>
-    </div>
-  </header>
-
-  <!-- Main Navigation Tabs -->
-  <div class="admin-tab-nav-wrapper">
-    <div class="admin-container">
-      <nav class="admin-tabs" role="tablist">
-        <button type="button" class="admin-tab-btn active" id="tab-btn-auth" data-tab="tab-content-auth" onclick="window.switchAdminTab('tab-content-auth')" role="tab">
+    <!-- Main Navigation Tabs -->
+    <div class="admin-tab-nav-wrapper">
+      <div class="admin-container">
+        <nav class="admin-tabs" role="tablist">
+          <button type="button" class="admin-tab-btn active" id="tab-btn-auth" data-tab="tab-content-auth" onclick="window.switchAdminTab('tab-content-auth')" role="tab">
           <span class="tab-icon">👥</span>
           <span>User Auth & Course Access</span>
           <span class="tab-count-badge" id="tab-student-count">0</span>
@@ -822,6 +814,7 @@
 
     </div>
   </main>
+  </div> <!-- /#admin-dashboard-root -->
 
   <!-- Toast Notification Container -->
   <div class="admin-toast-container" id="admin-toast"></div>

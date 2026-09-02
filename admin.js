@@ -82,28 +82,28 @@ let activeFormsMap = { ...DEFAULT_COURSE_FORMS };
 // 1B. ADMIN AUTHENTICATION GATEWAY CONTROLLER
 // ==========================================
 const adminAuthGate = document.getElementById("admin-auth-gate");
+const adminDashboardRoot = document.getElementById("admin-dashboard-root");
 const adminLoginForm = document.getElementById("admin-login-form");
 const adminAuthEmail = document.getElementById("admin-auth-email");
 const adminAuthPassword = document.getElementById("admin-auth-password");
-const btnAdminPwdToggle = document.getElementById("btn-admin-pwd-toggle");
-const adminRememberDevice = document.getElementById("admin-remember-device");
+const btnToggleAdminPwd = document.getElementById("btn-toggle-admin-pwd");
 const adminLoginStatusAlert = document.getElementById("admin-login-status-alert");
 const btnAdminLoginSubmit = document.getElementById("btn-admin-login-submit");
 const btnAdminLogout = document.getElementById("btn-admin-logout");
+
+if (btnToggleAdminPwd && adminAuthPassword) {
+  btnToggleAdminPwd.addEventListener("click", () => {
+    const isPwd = adminAuthPassword.type === "password";
+    adminAuthPassword.type = isPwd ? "text" : "password";
+    btnToggleAdminPwd.textContent = isPwd ? "🙈" : "👁️";
+  });
+}
 
 function showAdminLoginAlert(type, msg) {
   if (!adminLoginStatusAlert) return;
   adminLoginStatusAlert.className = `admin-status-box status-${type}`;
   adminLoginStatusAlert.innerHTML = `<div>${msg}</div>`;
   adminLoginStatusAlert.style.display = "block";
-}
-
-if (btnAdminPwdToggle && adminAuthPassword) {
-  btnAdminPwdToggle.addEventListener("click", () => {
-    const isPwd = adminAuthPassword.type === "password";
-    adminAuthPassword.type = isPwd ? "text" : "password";
-    btnAdminPwdToggle.textContent = isPwd ? "🙈" : "👁️";
-  });
 }
 
 async function handleAdminLogin(e) {
@@ -130,7 +130,7 @@ async function handleAdminLogin(e) {
 
   if (btnAdminLoginSubmit) {
     btnAdminLoginSubmit.disabled = true;
-    btnAdminLoginSubmit.innerHTML = `<span>Verifying Root Cryptographic Signature... ⏳</span>`;
+    btnAdminLoginSubmit.innerHTML = `<span>Verifying Admin Credentials... ⏳</span>`;
   }
 
   try {
@@ -159,13 +159,9 @@ async function handleAdminLogin(e) {
 
     // Store verified session
     sessionStorage.setItem("cgz_admin_session", inputEmail);
-    if (adminRememberDevice && adminRememberDevice.checked) {
-      localStorage.setItem("cgz_admin_remember", inputEmail);
-    }
 
-    if (adminAuthGate) {
-      adminAuthGate.style.display = "none";
-    }
+    if (adminAuthGate) adminAuthGate.style.display = "none";
+    if (adminDashboardRoot) adminDashboardRoot.style.display = "block";
 
     showToast(`👑 Welcome back, Administrator (${inputEmail})!`);
   } catch (err) {
@@ -180,7 +176,7 @@ async function handleAdminLogin(e) {
   } finally {
     if (btnAdminLoginSubmit) {
       btnAdminLoginSubmit.disabled = false;
-      btnAdminLoginSubmit.innerHTML = `<span>🔐 Authenticate & Enter Dashboard</span><span>⚡</span>`;
+      btnAdminLoginSubmit.innerHTML = `<span>🔐 Authenticate & Unlock Dashboard</span>`;
     }
   }
 }
@@ -193,27 +189,30 @@ async function handleAdminLogout() {
   } catch (e) {}
 
   sessionStorage.removeItem("cgz_admin_session");
-  localStorage.removeItem("cgz_admin_remember");
 
   if (adminAuthPassword) adminAuthPassword.value = "";
   if (adminLoginStatusAlert) adminLoginStatusAlert.style.display = "none";
   if (adminAuthGate) adminAuthGate.style.display = "flex";
+  if (adminDashboardRoot) adminDashboardRoot.style.display = "none";
 
   showToast("🚪 Signed out of Admin Command Center.");
 }
 
 function checkAdminAuthSession() {
-  const sessionUser = sessionStorage.getItem("cgz_admin_session") || localStorage.getItem("cgz_admin_remember");
+  const sessionUser = sessionStorage.getItem("cgz_admin_session");
   if (sessionUser && sessionUser.toLowerCase() === AUTHORIZED_ADMIN_EMAIL.toLowerCase()) {
     if (adminAuthGate) adminAuthGate.style.display = "none";
+    if (adminDashboardRoot) adminDashboardRoot.style.display = "block";
   } else {
     if (adminAuthGate) adminAuthGate.style.display = "flex";
+    if (adminDashboardRoot) adminDashboardRoot.style.display = "none";
   }
 
   onAuthStateChanged(adminAuth, (user) => {
     if (user && user.email && user.email.toLowerCase() === AUTHORIZED_ADMIN_EMAIL.toLowerCase()) {
       sessionStorage.setItem("cgz_admin_session", user.email);
       if (adminAuthGate) adminAuthGate.style.display = "none";
+      if (adminDashboardRoot) adminDashboardRoot.style.display = "block";
     }
   });
 }
