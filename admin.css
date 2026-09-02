@@ -1540,3 +1540,261 @@ input, textarea, select, .cred-item-val, .pwd-text {
   border-color: #ef4444;
 }
 
+/* ========================================================= */
+/* MOBILE UI OPTIMIZATION (SMARTPHONES & TABLETS)            */
+/* ========================================================= */
+@media (max-width: 768px) {
+  .admin-navbar {
+    padding: 0.75rem 1rem;
+  }
+
+  .admin-nav-container {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.75rem;
+  }
+
+  .admin-brand {
+    justify-content: flex-start;
+  }
+
+  .admin-brand-title {
+    font-size: 1.1rem;
+  }
+
+  .admin-brand-badge {
+    font-size: 0.68rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 250px;
+  }
+
+  .admin-nav-actions {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    width: 100%;
+  }
+
+  .firebase-status-pill {
+    font-size: 0.72rem;
+    padding: 0.25rem 0.6rem;
+  }
+
+  .admin-user-pill {
+    font-size: 0.72rem;
+    padding: 0.25rem 0.6rem;
+    max-width: 180px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .btn-admin-logout {
+    padding: 0.35rem 0.7rem;
+    font-size: 0.75rem;
+  }
+
+  .admin-tab-nav-wrapper {
+    padding: 0.5rem 0.75rem;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+
+  .admin-tab-nav-wrapper::-webkit-scrollbar {
+    display: none;
+  }
+
+  .admin-tabs {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 0.45rem;
+    min-width: max-content;
+  }
+
+  .admin-tab-btn {
+    padding: 0.6rem 0.85rem;
+    font-size: 0.78rem;
+    white-space: nowrap;
+  }
+
+  .admin-main {
+    padding: 1rem 0.75rem 3.5rem;
+  }
+
+  .admin-container {
+    gap: 1.25rem;
+  }
+
+  .admin-metrics-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+  }
+
+  .metric-card {
+    padding: 0.9rem;
+    gap: 0.65rem;
+  }
+
+  .metric-icon-wrap {
+    width: 38px;
+    height: 38px;
+    font-size: 1.15rem;
+    border-radius: 10px;
+  }
+
+  .metric-val {
+    font-size: 1.25rem;
+  }
+
+  .metric-lbl {
+    font-size: 0.72rem;
+  }
+
+  .admin-workspace-grid {
+    grid-template-columns: 1fr;
+    gap: 1.25rem;
+  }
+
+  .admin-card {
+    padding: 1.25rem 1rem;
+    border-radius: var(--radius-lg);
+  }
+
+  .card-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.65rem;
+    padding-bottom: 0.85rem;
+    margin-bottom: 1rem;
+  }
+
+  .card-heading {
+    font-size: 1.15rem;
+  }
+
+  .btn-quick-autofill {
+    width: 100%;
+    text-align: center;
+    padding: 0.55rem;
+  }
+
+  .form-row-2,
+  .form-row-3 {
+    grid-template-columns: 1fr;
+  }
+
+  .btn-admin-primary,
+  .btn-admin-secondary {
+    width: 100%;
+    justify-content: center;
+    padding: 0.75rem 1rem;
+    font-size: 0.88rem;
+  }
+
+  .cred-preview-card {
+    padding: 1.25rem 1rem;
+  }
+
+  .cred-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.25rem;
+  }
+
+  .cred-item-val {
+    word-break: break-all;
+  }
+
+  .admin-table-wrap {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    margin: 0 -0.5rem;
+    padding: 0 0.5rem;
+  }
+
+  .admin-table th,
+  .admin-table td {
+    padding: 0.65rem 0.55rem;
+    font-size: 0.76rem;
+  }
+
+  .table-action-btns {
+    flex-wrap: wrap;
+    gap: 0.35rem;
+  }
+
+  .btn-tbl-action,
+  .btn-toggle-status {
+    padding: 0.35rem 0.55rem;
+    font-size: 0.72rem;
+  }
+
+  .table-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0.65rem;
+  }
+
+  .table-search-input {
+    width: 100%;
+  }
+
+  .cert-card-luxury {
+    padding: 1.25rem 0.85rem;
+    min-width: unset;
+    width: 100%;
+  }
+
+  .cert-recipient-name {
+    font-size: 1.25rem;
+  }
+
+  .cert-body-statement {
+    font-size: 0.76rem;
+    line-height: 1.45;
+  }
+
+  .cert-meta-grid {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+
+  .qr-canvas-box {
+    max-width: 180px;
+    margin: 0 auto;
+  }
+}
+
+@media (max-width: 480px) {
+  .admin-metrics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .admin-auth-gate-overlay {
+    padding: 1rem;
+  }
+
+  .admin-gate-card {
+    padding: 1.65rem 1.15rem;
+    border-radius: var(--radius-md);
+  }
+
+  .admin-gate-title {
+    font-size: 1.22rem;
+  }
+
+  .admin-gate-sub {
+    font-size: 0.78rem;
+  }
+
+  .admin-gate-logo {
+    width: 48px;
+    height: 48px;
+  }
+}
+
