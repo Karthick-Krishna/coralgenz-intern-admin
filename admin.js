@@ -85,6 +85,8 @@ const adminAuthGate = document.getElementById("admin-auth-gate");
 const adminLoginForm = document.getElementById("admin-login-form");
 const adminAuthEmail = document.getElementById("admin-auth-email");
 const adminAuthPassword = document.getElementById("admin-auth-password");
+const btnAdminPwdToggle = document.getElementById("btn-admin-pwd-toggle");
+const adminRememberDevice = document.getElementById("admin-remember-device");
 const adminLoginStatusAlert = document.getElementById("admin-login-status-alert");
 const btnAdminLoginSubmit = document.getElementById("btn-admin-login-submit");
 const btnAdminLogout = document.getElementById("btn-admin-logout");
@@ -94,6 +96,14 @@ function showAdminLoginAlert(type, msg) {
   adminLoginStatusAlert.className = `admin-status-box status-${type}`;
   adminLoginStatusAlert.innerHTML = `<div>${msg}</div>`;
   adminLoginStatusAlert.style.display = "block";
+}
+
+if (btnAdminPwdToggle && adminAuthPassword) {
+  btnAdminPwdToggle.addEventListener("click", () => {
+    const isPwd = adminAuthPassword.type === "password";
+    adminAuthPassword.type = isPwd ? "text" : "password";
+    btnAdminPwdToggle.textContent = isPwd ? "🙈" : "👁️";
+  });
 }
 
 async function handleAdminLogin(e) {
@@ -120,7 +130,7 @@ async function handleAdminLogin(e) {
 
   if (btnAdminLoginSubmit) {
     btnAdminLoginSubmit.disabled = true;
-    btnAdminLoginSubmit.innerHTML = `<span>Verifying Admin Credentials... ⏳</span>`;
+    btnAdminLoginSubmit.innerHTML = `<span>Verifying Root Cryptographic Signature... ⏳</span>`;
   }
 
   try {
@@ -149,6 +159,9 @@ async function handleAdminLogin(e) {
 
     // Store verified session
     sessionStorage.setItem("cgz_admin_session", inputEmail);
+    if (adminRememberDevice && adminRememberDevice.checked) {
+      localStorage.setItem("cgz_admin_remember", inputEmail);
+    }
 
     if (adminAuthGate) {
       adminAuthGate.style.display = "none";
@@ -167,7 +180,7 @@ async function handleAdminLogin(e) {
   } finally {
     if (btnAdminLoginSubmit) {
       btnAdminLoginSubmit.disabled = false;
-      btnAdminLoginSubmit.innerHTML = `<span>🔐 Authenticate & Enter Dashboard</span>`;
+      btnAdminLoginSubmit.innerHTML = `<span>🔐 Authenticate & Enter Dashboard</span><span>⚡</span>`;
     }
   }
 }
@@ -180,6 +193,7 @@ async function handleAdminLogout() {
   } catch (e) {}
 
   sessionStorage.removeItem("cgz_admin_session");
+  localStorage.removeItem("cgz_admin_remember");
 
   if (adminAuthPassword) adminAuthPassword.value = "";
   if (adminLoginStatusAlert) adminLoginStatusAlert.style.display = "none";
@@ -189,7 +203,7 @@ async function handleAdminLogout() {
 }
 
 function checkAdminAuthSession() {
-  const sessionUser = sessionStorage.getItem("cgz_admin_session");
+  const sessionUser = sessionStorage.getItem("cgz_admin_session") || localStorage.getItem("cgz_admin_remember");
   if (sessionUser && sessionUser.toLowerCase() === AUTHORIZED_ADMIN_EMAIL.toLowerCase()) {
     if (adminAuthGate) adminAuthGate.style.display = "none";
   } else {
