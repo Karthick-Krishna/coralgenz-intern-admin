@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin Command Center | Coralgenz Global</title>
+  <link rel="icon" type="image/png" href="coralgenz-logo.png">
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  
+  <!-- QR Code Generator & Decoder Libraries (CDN) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.min.js"></script>
+  
+  <!-- Main Admin CSS -->
+  <link rel="stylesheet" href="admin.css">
+
+  <script>
+    // ========================================================
+    // ANTI-INSPECT & DEVTOOLS SECURITY SHIELD
+    // ========================================================
+    (function() {
+      // 1. Disable Right Click Context Menu
+      document.addEventListener("contextmenu", function(e) {
+        e.preventDefault();
+        e.stopPropagation();
+        return false;
+      }, { capture: true });
+
+      // 2. Block Inspect & DevTools Keyboard Shortcuts
+      document.addEventListener("keydown", function(e) {
+        // F12
+        if (e.key === "F12" || e.keyCode === 123) {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+
+        // Ctrl+Shift+I / Cmd+Opt+I (Inspect)
+        // Ctrl+Shift+J / Cmd+Opt+J (Console)
+        // Ctrl+Shift+C / Cmd+Opt+C (Element Inspector)
+        // Ctrl+U / Cmd+Opt+U (View Source)
+        // Ctrl+S / Cmd+S (Save Page)
+        const isCmdOrCtrl = e.ctrlKey || e.metaKey;
+        const key = (e.key || "").toLowerCase();
+        
+        if (isCmdOrCtrl && (key === "i" || key === "j" || key === "u" || key === "s" || (key === "c" && e.shiftKey))) {
+          e.preventDefault();
+          e.stopPropagation();
+          return false;
+        }
+      }, { capture: true });
+
+      // 3. Clear and Silence Console
+      try {
+        if (window.console) {
+          console.log = function() {};
+          console.warn = function() {};
+          console.error = function() {};
+          console.info = function() {};
+          console.debug = function() {};
+        }
+      } catch (err) {}
+    })();
+
+    // Immediate global tab switcher
+    window.switchAdminTab = function(targetTabId) {
+      var tabButtons = document.querySelectorAll(".admin-tab-btn");
+      var tabContents = document.querySelectorAll(".admin-tab-content");
+
+      tabButtons.forEach(function(btn) {
+        if (btn.getAttribute("data-tab") === targetTabId) {
+          btn.classList.add("active");
+        } else {
+          btn.classList.remove("active");
+        }
+      });
+
+      tabContents.forEach(function(content) {
+        if (content.id === targetTabId) {
+          content.style.display = "block";
+          content.classList.add("active");
+        } else {
+          content.style.display = "none";
+          content.classList.remove("active");
+        }
+      });
+
+      if (targetTabId === "tab-content-certs" && window.updateLivePreview) {
+        window.updateLivePreview();
+      }
+    };
+  </script>
+</head>
+<body class="admin-theme" oncontextmenu="return false;">
+
+  <!-- Top Admin Navbar -->
+  <header class="admin-navbar">
+    <div class="admin-nav-container">
+      <div class="admin-brand">
+        <img src="coralgenz-logo.png" onerror="this.src='coralgenz-logo.png'" alt="Coralgenz Global" class="admin-brand-logo">
+        <div>
+          <div class="admin-brand-title">Coralgenz Global</div>
+          <div class="admin-brand-badge">⚡ Admin Command Center • User Auth, Course Routing & QR Generator</div>
+        </div>
+      </div>
+
+      <div class="admin-nav-actions">
+        <div class="firebase-status-pill" id="firebase-status-indicator">
+          <span class="status-dot-pulse"></span>
+          <span id="firebase-status-text">Firebase Firestore Live</span>
+        </div>
+      </div>
+    </div>
+  </header>
+
+  <!-- Main Navigation Tabs -->
+  <div class="admin-tab-nav-wrapper">
+    <div class="admin-container">
+      <nav class="admin-tabs" role="tablist">
+        <button type="button" class="admin-tab-btn active" id="tab-btn-auth" data-tab="tab-content-auth" onclick="window.switchAdminTab('tab-content-auth')" role="tab">
+          <span class="tab-icon">👥</span>
+          <span>User Auth & Course Access</span>
+          <span class="tab-count-badge" id="tab-student-count">0</span>
+        </button>
+        <button type="button" class="admin-tab-btn" id="tab-btn-forms" data-tab="tab-content-forms" onclick="window.switchAdminTab('tab-content-forms')" role="tab">
+          <span class="tab-icon">🔗</span>
+          <span>Course Google Forms Setup</span>
+        </button>
+        <button type="button" class="admin-tab-btn" id="tab-btn-certs" data-tab="tab-content-certs" onclick="window.switchAdminTab('tab-content-certs')" role="tab">
+          <span class="tab-icon">📜</span>
+          <span>Certificate & QR Engine</span>
+          <span class="tab-count-badge" id="tab-cert-count">0</span>
+        </button>
+      </nav>
+    </div>
+  </div>
+
+  <!-- Main Container -->
+  <main class="admin-main">
+    <div class="admin-container">
+
+      <!-- ========================================================= -->
+      <!-- TAB 1: USER AUTHENTICATION & COURSE ACCESS (PRIMARY)      -->
+      <!-- ========================================================= -->
+      <div class="admin-tab-content active" id="tab-content-auth">
+        
+        <!-- Auth Metrics Row -->
+        <section class="admin-metrics-grid">
+          <div class="metric-card">
+            <div class="metric-icon-wrap icon-blue">👥</div>
+            <div>
+              <span class="metric-label">Total Authenticated Users</span>
+              <div class="metric-value" id="metric-total-students">0</div>
+              <span class="metric-sub">Synced live in Firebase Firestore (`users`)</span>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-icon-wrap icon-green">🟢</div>
+            <div>
+              <span class="metric-label">Active / Authorized Access</span>
+              <div class="metric-value" id="metric-active-students">0</div>
+              <span class="metric-sub">Can authenticate on student portal</span>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-icon-wrap icon-orange">📚</div>
+            <div>
+              <span class="metric-label">Available Course Tracks</span>
+              <div class="metric-value">5 Tracks</div>
+              <span class="metric-sub">Java, Python, C, Web Dev, Fullstack</span>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-icon-wrap icon-purple">⚡</div>
+            <div>
+              <span class="metric-label">Firebase Database Sync</span>
+              <div class="metric-value font-mono" style="font-size: 0.95rem;">Protected Cloud Vault</div>
+              <span class="metric-sub">Encrypted Cloud Gateway</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Main Auth Workspace Grid -->
+        <div class="admin-workspace-grid">
+
+          <!-- Left Column: Add / Authorize User Form -->
+          <div class="admin-card generator-card">
+            <div class="card-header">
+              <div class="card-title-group">
+                <span class="card-badge badge-blue">Step 1 • Create User Credentials</span>
+                <h2 class="card-heading">Add User to Authenticate & Assign Course</h2>
+                <p class="card-sub">Create user login credentials with Email, Password, and Course. When the user logs in with their credentials, it routes them to the respected Google Form.</p>
+              </div>
+              <button type="button" class="btn-quick-autofill" id="btn-quick-sample-student">
+                <span>⚡ Sample Data</span>
+              </button>
+            </div>
+
+            <form id="add-student-auth-form" class="admin-form">
+              <div class="form-row-2">
+                <div class="admin-form-group">
+                  <label for="student-name-input">User / Candidate Full Name <span class="req">*</span></label>
+                  <input type="text" id="student-name-input" placeholder="e.g. Karthick Krishna" required autocomplete="off">
+                </div>
+
+                <div class="admin-form-group">
+                  <label for="student-email-input">Email Address <span class="req">*</span></label>
+                  <input type="email" id="student-email-input" placeholder="e.g. candidate@gmail.com" required autocomplete="off">
+                </div>
+              </div>
+
+              <div class="form-row-2">
+                <div class="admin-form-group">
+                  <div class="label-with-btn">
+                    <label for="student-password-input">Password <span class="req">*</span></label>
+                    <button type="button" class="btn-text-action" id="btn-gen-strong-pwd">🎲 Random Password</button>
+                  </div>
+                  <div class="input-prefix-wrap">
+                    <input type="text" id="student-password-input" placeholder="Enter password or click Random Password" required autocomplete="off">
+                  </div>
+                </div>
+
+                <div class="admin-form-group">
+                  <label for="student-course-select">Select Course Track <span class="req">*</span></label>
+                  <select id="student-course-select" required>
+                    <option value="Java">☕ Java</option>
+                    <option value="Python">🐍 Python</option>
+                    <option value="C">💻 C</option>
+                    <option value="Web Development">🌐 Web Development</option>
+                    <option value="Fullstack" selected>⚡ Fullstack</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="form-row-2">
+                <div class="admin-form-group">
+                  <label for="student-access-status">Access Authorization <span class="req">*</span></label>
+                  <select id="student-access-status">
+                    <option value="active" selected>🟢 Active • Grant Access to Course Form</option>
+                    <option value="suspended">🔴 Suspended • Revoke Access</option>
+                  </select>
+                </div>
+
+                <div class="admin-form-group">
+                  <label for="student-batch-input">Batch / Notes</label>
+                  <input type="text" id="student-batch-input" value="Cohort 2026" placeholder="Cohort 2026">
+                </div>
+              </div>
+
+              <div class="form-actions-row">
+                <button type="submit" class="btn-admin-primary" id="btn-save-student-user">
+                  <span>🚀 Save User to Firebase & Grant Access</span>
+                  <span>💾</span>
+                </button>
+
+                <button type="button" class="btn-admin-outline" id="btn-reset-student-form">
+                  <span>🔄 Reset</span>
+                </button>
+              </div>
+
+              <div id="student-form-status-alert" class="admin-status-box" style="display: none;"></div>
+            </form>
+          </div>
+
+          <!-- Right Column: Live Student Credentials Summary Card -->
+          <div class="admin-card preview-card">
+            <div class="card-header">
+              <div class="card-title-group">
+                <span class="card-badge badge-green">Step 2 • User Account Card</span>
+                <h2 class="card-heading">Generated User Credentials Preview</h2>
+                <p class="card-sub">Quickly inspect or copy user authentication credentials formatted for sharing.</p>
+              </div>
+            </div>
+
+            <div class="student-credential-preview-card">
+              <div class="cred-header-row">
+                <div class="cred-brand">
+                  <span class="cred-logo-icon">🔑</span>
+                  <div>
+                    <strong>User Authentication Record</strong>
+                    <span>Firestore Database Entity</span>
+                  </div>
+                </div>
+                <span class="cred-status-tag" id="prev-cred-status">🟢 Access Granted</span>
+              </div>
+
+              <div class="cred-body-list">
+                <div class="cred-item">
+                  <span class="cred-item-label">Name:</span>
+                  <strong class="cred-item-val" id="prev-cred-name">—</strong>
+                </div>
+                <div class="cred-item">
+                  <span class="cred-item-label">Email:</span>
+                  <strong class="cred-item-val font-mono" id="prev-cred-email">—</strong>
+                </div>
+                <div class="cred-item">
+                  <span class="cred-item-label">Password:</span>
+                  <strong class="cred-item-val font-mono text-blue" id="prev-cred-pwd">—</strong>
+                </div>
+                <div class="cred-item">
+                  <span class="cred-item-label">Assigned Course:</span>
+                  <span class="course-pill-preview" id="prev-cred-course">⚡ Fullstack</span>
+                </div>
+                <div class="cred-item">
+                  <span class="cred-item-label">Target Google Form:</span>
+                  <span class="cred-item-val font-mono text-muted" id="prev-cred-form">Mapped to Fullstack</span>
+                </div>
+              </div>
+
+              <div class="cred-security-note">
+                <span>🔒 Stored in Firebase `users` collection • Direct Google Form URL mapped to course</span>
+              </div>
+
+              <div class="cred-actions-grid">
+                <button type="button" class="btn-preview-action btn-copy-link" id="btn-copy-student-creds">
+                  <span>📋 Copy User Credentials</span>
+                </button>
+                <button type="button" class="btn-preview-action btn-print-cert" id="btn-trigger-save-user">
+                  <span>💾 Save to Firebase Now</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Bottom Section: Firebase Live Student Users Table -->
+        <section class="admin-card database-card">
+          <div class="card-header table-card-header">
+            <div>
+              <span class="card-badge badge-blue">Firebase Firestore Collection: "users" & "student_users"</span>
+              <h2 class="card-heading">Live Authenticated Users & Course Access Table</h2>
+              <p class="card-sub">All users stored in Firebase Firestore sync in real-time. Toggle access, view passwords, edit courses, or delete accounts.</p>
+            </div>
+
+            <div class="table-search-box">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="student-table-search" placeholder="Search by name, email, course...">
+            </div>
+          </div>
+
+          <div class="table-responsive-wrapper">
+            <table class="admin-table" id="student-users-table">
+              <thead>
+                <tr>
+                  <th>User Details</th>
+                  <th>Assigned Course</th>
+                  <th>Password</th>
+                  <th>Access Permission</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="student-users-table-body">
+                <tr>
+                  <td colspan="5" class="td-loading">
+                    <div class="table-spinner"></div>
+                    <span>Connecting to Firebase Firestore & fetching users...</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </div>
+
+      <!-- ========================================================= -->
+      <!-- TAB 2: COURSE GOOGLE FORMS CONFIGURATION                  -->
+      <!-- ========================================================= -->
+      <div class="admin-tab-content" id="tab-content-forms" style="display: none;">
+        
+        <div class="admin-card">
+          <div class="card-header">
+            <div class="card-title-group">
+              <span class="card-badge badge-purple">Course Google Forms Mapping</span>
+              <h2 class="card-heading">Set Google Form Links for Each Course</h2>
+              <p class="card-sub">Configure the Google Form link for <strong>Java, Python, C, Web Development, Fullstack</strong>. When a user logs in with their email and password, they are routed to the form assigned to their course.</p>
+            </div>
+            <button type="button" class="btn-quick-autofill" id="btn-load-default-forms">
+              <span>🔄 Reset to Default Dummy Links</span>
+            </button>
+          </div>
+
+          <form id="course-forms-config-form" class="admin-form">
+            <div class="course-form-config-grid">
+
+              <!-- Java Form Link -->
+              <div class="course-config-box">
+                <div class="course-config-header">
+                  <div class="course-icon-title">
+                    <span class="course-tag-icon tag-java">☕</span>
+                    <div>
+                      <h3 class="course-title-text">Java Google Form</h3>
+                      <span class="course-sub-text">Assigned to: Java track users</span>
+                    </div>
+                  </div>
+                  <span class="badge-active-track">Java</span>
+                </div>
+                <div class="admin-form-group">
+                  <label for="form-url-java">Google Form URL <span class="req">*</span></label>
+                  <input type="url" id="form-url-java" class="font-mono" placeholder="https://docs.google.com/forms/d/e/.../viewform" required>
+                  <span class="form-hint">Users with course "Java" will be navigated here upon login.</span>
+                </div>
+              </div>
+
+              <!-- Python Form Link -->
+              <div class="course-config-box">
+                <div class="course-config-header">
+                  <div class="course-icon-title">
+                    <span class="course-tag-icon tag-python">🐍</span>
+                    <div>
+                      <h3 class="course-title-text">Python Google Form</h3>
+                      <span class="course-sub-text">Assigned to: Python track users</span>
+                    </div>
+                  </div>
+                  <span class="badge-active-track">Python</span>
+                </div>
+                <div class="admin-form-group">
+                  <label for="form-url-python">Google Form URL <span class="req">*</span></label>
+                  <input type="url" id="form-url-python" class="font-mono" placeholder="https://docs.google.com/forms/d/e/.../viewform" required>
+                  <span class="form-hint">Users with course "Python" will be navigated here upon login.</span>
+                </div>
+              </div>
+
+              <!-- C Programming Form Link -->
+              <div class="course-config-box">
+                <div class="course-config-header">
+                  <div class="course-icon-title">
+                    <span class="course-tag-icon tag-c">💻</span>
+                    <div>
+                      <h3 class="course-title-text">C Programming Google Form</h3>
+                      <span class="course-sub-text">Assigned to: C track users</span>
+                    </div>
+                  </div>
+                  <span class="badge-active-track">C</span>
+                </div>
+                <div class="admin-form-group">
+                  <label for="form-url-c">Google Form URL <span class="req">*</span></label>
+                  <input type="url" id="form-url-c" class="font-mono" placeholder="https://docs.google.com/forms/d/e/.../viewform" required>
+                  <span class="form-hint">Users with course "C" will be navigated here upon login.</span>
+                </div>
+              </div>
+
+              <!-- Web Development Form Link -->
+              <div class="course-config-box">
+                <div class="course-config-header">
+                  <div class="course-icon-title">
+                    <span class="course-tag-icon tag-web">🌐</span>
+                    <div>
+                      <h3 class="course-title-text">Web Development Google Form</h3>
+                      <span class="course-sub-text">Assigned to: Web Development track users</span>
+                    </div>
+                  </div>
+                  <span class="badge-active-track">Web Dev</span>
+                </div>
+                <div class="admin-form-group">
+                  <label for="form-url-webdev">Google Form URL <span class="req">*</span></label>
+                  <input type="url" id="form-url-webdev" class="font-mono" placeholder="https://docs.google.com/forms/d/e/.../viewform" required>
+                  <span class="form-hint">Users with course "Web Development" will be navigated here upon login.</span>
+                </div>
+              </div>
+
+              <!-- Fullstack Form Link -->
+              <div class="course-config-box">
+                <div class="course-config-header">
+                  <div class="course-icon-title">
+                    <span class="course-tag-icon tag-fullstack">⚡</span>
+                    <div>
+                      <h3 class="course-title-text">Fullstack Google Form</h3>
+                      <span class="course-sub-text">Assigned to: Fullstack track users</span>
+                    </div>
+                  </div>
+                  <span class="badge-active-track">Fullstack</span>
+                </div>
+                <div class="admin-form-group">
+                  <label for="form-url-fullstack">Google Form URL <span class="req">*</span></label>
+                  <input type="url" id="form-url-fullstack" class="font-mono" placeholder="https://docs.google.com/forms/d/e/.../viewform" required>
+                  <span class="form-hint">Users with course "Fullstack" will be navigated here upon login.</span>
+                </div>
+              </div>
+
+            </div>
+
+            <div class="form-actions-row" style="margin-top: 2rem;">
+              <button type="submit" class="btn-admin-primary" id="btn-save-course-forms">
+                <span>💾 Save Course Google Form Links to Firebase</span>
+                <span>🚀</span>
+              </button>
+            </div>
+
+            <div id="forms-config-status-alert" class="admin-status-box" style="display: none;"></div>
+          </form>
+        </div>
+
+      </div>
+
+      <!-- ========================================================= -->
+      <!-- TAB 3: CERTIFICATE & QR GENERATOR ENGINE                  -->
+      <!-- ========================================================= -->
+      <div class="admin-tab-content" id="tab-content-certs" style="display: none;">
+        
+        <!-- Metrics Row -->
+        <section class="admin-metrics-grid">
+          <div class="metric-card">
+            <div class="metric-icon-wrap icon-blue">📜</div>
+            <div>
+              <span class="metric-label">Total Certificates Issued</span>
+              <div class="metric-value" id="metric-total-certs">0</div>
+              <span class="metric-sub">Syncing with Firestore live</span>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-icon-wrap icon-green">🏛️</div>
+            <div>
+              <span class="metric-label">MSME Verified Cohort</span>
+              <div class="metric-value">2026</div>
+              <span class="metric-sub">Govt. Registered Entity</span>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-icon-wrap icon-orange">🎓</div>
+            <div>
+              <span class="metric-label">Active Internship Tracks</span>
+              <div class="metric-value">5 Tracks</div>
+              <span class="metric-sub">Java, Python, C, Web Dev, Fullstack</span>
+            </div>
+          </div>
+
+          <div class="metric-card">
+            <div class="metric-icon-wrap icon-purple">⚡</div>
+            <div>
+              <span class="metric-label">QR Verification Target</span>
+              <div class="metric-value font-mono" style="font-size: 0.95rem;">internships.coralgenz.co.in</div>
+              <span class="metric-sub">Direct QR scan resolution</span>
+            </div>
+          </div>
+        </section>
+
+        <!-- Main Workspace Grid -->
+        <div class="admin-workspace-grid">
+
+          <!-- Left Column: Certificate & QR Code Form -->
+          <div class="admin-card generator-card">
+            <div class="card-header">
+              <div class="card-title-group">
+                <span class="card-badge">Issue Certificate</span>
+                <h2 class="card-heading">Candidate Details & QR Generator</h2>
+                <p class="card-sub">Fill in the candidate's verified internship information to instantly render a QR code and sync the record to Firebase Firestore.</p>
+              </div>
+              <button type="button" class="btn-quick-autofill" id="btn-quick-sample">
+                <span>⚡ Sample Data</span>
+              </button>
+            </div>
+
+            <form id="candidate-cert-form" class="admin-form">
+              <div class="form-row-2">
+                <div class="admin-form-group">
+                  <label for="cand-name">Candidate Full Name <span class="req">*</span></label>
+                  <input type="text" id="cand-name" placeholder="e.g. Karthick Krishna" required autocomplete="off">
+                </div>
+
+                <div class="admin-form-group">
+                  <label for="cand-email">Registered Email Address <span class="req">*</span></label>
+                  <input type="email" id="cand-email" placeholder="e.g. candidate@gmail.com" required autocomplete="off">
+                </div>
+              </div>
+
+              <div class="form-row-2">
+                <div class="admin-form-group">
+                  <label for="cand-track">Internship Track / Domain <span class="req">*</span></label>
+                  <select id="cand-track" required>
+                    <option value="Java">☕ Java</option>
+                    <option value="Python">🐍 Python</option>
+                    <option value="C">💻 C</option>
+                    <option value="Web Development">🌐 Web Development</option>
+                    <option value="Fullstack" selected>⚡ Fullstack</option>
+                  </select>
+                </div>
+
+                <div class="admin-form-group">
+                  <div class="label-with-btn">
+                    <label for="cand-serial">Certificate Serial ID <span class="req">*</span></label>
+                    <button type="button" class="btn-text-action" id="btn-gen-new-id">🔄 New ID</button>
+                  </div>
+                  <input type="text" id="cand-serial" placeholder="e.g. CG-MSME-2026-CERT-8842" required autocomplete="off">
+                </div>
+              </div>
+
+              <div class="form-row-2">
+                <div class="admin-form-group">
+                  <label for="cand-issue-date">Issue Date <span class="req">*</span></label>
+                  <input type="text" id="cand-issue-date" value="August 2026" required>
+                </div>
+
+                <div class="admin-form-group">
+                  <label>Internship Duration (Standard)</label>
+                  <div class="input-prefix-wrap">
+                    <input type="text" value="1 Month" readonly disabled style="background: rgba(255,255,255,0.04); color: #38bdf8; font-weight: 700; cursor: default;">
+                  </div>
+                </div>
+              </div>
+
+              <div class="admin-form-group">
+                <label for="cand-verify-url">QR Code Verification Target URL</label>
+                <div class="input-prefix-wrap">
+                  <input type="text" id="cand-verify-url" value="https://internships.coralgenz.co.in/?id=" placeholder="https://internships.coralgenz.co.in/?id=">
+                </div>
+              </div>
+
+              <div class="form-actions-row">
+                <button type="submit" class="btn-admin-primary" id="btn-save-firebase">
+                  <span>💾 Save Certificate to Firebase</span>
+                  <span>🚀</span>
+                </button>
+
+                <button type="button" class="btn-admin-secondary" id="btn-preview-cert">
+                  <span>👁️ Live Preview</span>
+                </button>
+
+                <button type="button" class="btn-admin-outline" id="btn-reset-form">
+                  <span>🔄 Reset</span>
+                </button>
+              </div>
+
+              <div id="form-status-alert" class="admin-status-box" style="display: none;"></div>
+            </form>
+          </div>
+
+          <!-- Right Column: Live QR Code & Certificate Preview -->
+          <div class="admin-card preview-card">
+            <div class="card-header">
+              <div class="card-title-group">
+                <span class="card-badge badge-green">QR & Print Asset</span>
+                <h2 class="card-heading">Live QR & Certificate Card</h2>
+                <p class="card-sub">Instant QR code rendering. Download the QR asset or print the complete certificate document.</p>
+              </div>
+            </div>
+
+            <!-- Certificate Document Preview Wrapper -->
+            <div class="cert-live-preview-box" id="printable-certificate-document">
+              <div class="cert-watermark">CORALGENZ</div>
+              <div class="cert-header-preview">
+                <div class="cert-badge-row">
+                  <span class="cert-badge-gold">🏛️ MSME GOVT. REGISTERED</span>
+                  <span class="cert-badge-verified">✅ AUTHENTIC RECORD</span>
+                </div>
+                <h3 class="cert-title-luxury">CORALGENZ GLOBAL</h3>
+                <p class="cert-subtitle-luxury">CERTIFICATE OF INTERNSHIP COMPLETION</p>
+              </div>
+
+              <div class="cert-body-preview">
+                <p class="cert-intro-text">This is proudly certified that</p>
+                <div class="cert-candidate-name" id="prev-candidate-name">Karthick Krishna</div>
+                <p class="cert-description-text">
+                  has successfully completed an intensive <strong>1 Month</strong> industry internship program in
+                  <strong id="prev-track-name">Fullstack</strong>
+                  with exceptional commitment, delivering production-grade milestones.
+                </p>
+              </div>
+
+              <div class="cert-meta-footer-row">
+                <div class="cert-meta-left">
+                  <div class="meta-row-item">
+                    <span>Serial ID:</span>
+                    <strong id="prev-cert-id">CG-MSME-2026-CERT-8842</strong>
+                  </div>
+                  <div class="meta-row-item">
+                    <span>Duration:</span>
+                    <strong>1 Month</strong>
+                  </div>
+                  <div class="meta-row-item">
+                    <span>Issued Date:</span>
+                    <strong id="prev-issue-date">August 2026</strong>
+                  </div>
+                  <div class="meta-row-item">
+                    <span>Candidate Email:</span>
+                    <strong id="prev-candidate-email">candidate@gmail.com</strong>
+                  </div>
+                </div>
+
+                <div class="cert-qr-container">
+                  <div class="qr-canvas-holder" id="qr-code-canvas-box">
+                    <!-- QR Code is dynamically rendered here -->
+                  </div>
+                  <span class="qr-scan-label">Scan to Verify</span>
+                </div>
+              </div>
+
+              <div class="cert-security-strip">
+                <span class="sec-dot"></span>
+                <span>Tamper-Proof Salted Hash Verification Active</span>
+              </div>
+            </div>
+
+            <!-- Preview Action Buttons -->
+            <div class="preview-actions-grid">
+              <button type="button" class="btn-preview-action btn-download-qr" id="btn-download-qr-img">
+                <span>📥 Download QR Code (PNG)</span>
+              </button>
+              <button type="button" class="btn-preview-action btn-print-cert" id="btn-print-admin-cert">
+                <span>🖨️ Print Certificate (PDF)</span>
+              </button>
+              <button type="button" class="btn-preview-action btn-copy-link" id="btn-copy-public-link">
+                <span>🔗 Copy Verification URL</span>
+              </button>
+            </div>
+          </div>
+
+        </div>
+
+        <!-- Bottom Section: Firebase Live Candidate Records Table -->
+        <section class="admin-card database-card">
+          <div class="card-header table-card-header">
+            <div>
+              <span class="card-badge badge-blue">Firebase Firestore Collection: "certificates"</span>
+              <h2 class="card-heading">Live Candidate Records & Issued Certificates</h2>
+              <p class="card-sub">All certificates stored in Firebase are displayed in real-time. You can filter, search, view QR, edit, or delete records.</p>
+            </div>
+
+            <div class="table-search-box">
+              <span class="search-icon">🔍</span>
+              <input type="text" id="table-search-input" placeholder="Search by name, email, serial ID, track...">
+            </div>
+          </div>
+
+          <div class="table-responsive-wrapper">
+            <table class="admin-table" id="certificates-table">
+              <thead>
+                <tr>
+                  <th>Candidate Details</th>
+                  <th>Internship Track</th>
+                  <th>Certificate Serial ID</th>
+                  <th>Issue Date</th>
+                  <th>QR Code</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="certificates-table-body">
+                <tr>
+                  <td colspan="6" class="td-loading">
+                    <div class="table-spinner"></div>
+                    <span>Connecting to Firebase Firestore & fetching certificates...</span>
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+      </div>
+
+    </div>
+  </main>
+
+  <!-- Toast Notification Container -->
+  <div class="admin-toast-container" id="admin-toast"></div>
+
+  <!-- Main Admin JavaScript (Firebase Modular SDK) -->
+  <script type="module" src="admin.js"></script>
+</body>
+</html>
