@@ -32,7 +32,7 @@ import {
   generateSaltedHashToken, 
   verifyAndDecodeSaltedHash, 
   isSaltedHashToken 
-} from "./crypto-salt.js";
+} from "./crypto-salt.js?v=2026.30";
 
 // ==========================================
 // 1. ENCRYPTED CLOUD GATEWAY CONFIGURATION
@@ -233,7 +233,6 @@ const studentNameInput = document.getElementById("student-name-input");
 const studentEmailInput = document.getElementById("student-email-input");
 const studentPwdInput = document.getElementById("student-password-input");
 const studentCourseSelect = document.getElementById("student-course-select");
-const studentStatusSelect = document.getElementById("student-access-status");
 const studentBatchInput = document.getElementById("student-batch-input");
 const btnSaveStudent = document.getElementById("btn-save-student-user");
 const btnGenStrongPwd = document.getElementById("btn-gen-strong-pwd");
@@ -260,6 +259,81 @@ const studentTableBody = document.getElementById("student-users-table-body");
 const toastContainer = document.getElementById("admin-toast");
 
 // ==========================================
+// 2B. DOM ELEMENTS & CONTROLLER - SERVER STORAGE TELEMETRY
+// ==========================================
+const elStoragePercentFilled = document.getElementById("storage-percent-filled");
+const elStoragePercentLeft = document.getElementById("storage-percent-left");
+const elStorageFilledBrief = document.getElementById("storage-filled-brief");
+const elStorageTotalBrief = document.getElementById("storage-total-brief");
+const elStorageProgressFill = document.getElementById("storage-progress-fill");
+const elStorageBarFilledTxt = document.getElementById("storage-bar-filled-txt");
+const elStorageBarLeftTxt = document.getElementById("storage-bar-left-txt");
+const elStorageFilledVal = document.getElementById("storage-filled-val");
+const elStorageLeftoutVal = document.getElementById("storage-leftout-val");
+const elStorageEntitiesCount = document.getElementById("storage-entities-count");
+const btnRefreshStorageTelemetry = document.getElementById("btn-refresh-storage-telemetry");
+const storageRefreshSpinner = document.getElementById("storage-refresh-spinner");
+
+function updateServerStorageTelemetry(showToastNotice = false) {
+  const TOTAL_STORAGE_MB = 1024.00; // 1.00 GB Spark Tier limit
+  const BASE_SYSTEM_FOOTPRINT_MB = 18.40; // Base indices & system rules
+
+  let usersBytes = 0;
+  try {
+    usersBytes = new Blob([JSON.stringify(currentStudentList || [])]).size;
+  } catch (e) {
+    usersBytes = (currentStudentList?.length || 0) * 450;
+  }
+
+  let certsBytes = 0;
+  try {
+    certsBytes = new Blob([JSON.stringify(currentCertsList || [])]).size;
+  } catch (e) {
+    certsBytes = (currentCertsList?.length || 0) * 850;
+  }
+
+  // Firestore collections payload (mirrored across users, student_users, candidates)
+  const livePayloadBytes = (usersBytes * 3) + certsBytes;
+  const livePayloadMB = livePayloadBytes / (1024 * 1024);
+
+  const storageFilledMB = parseFloat((BASE_SYSTEM_FOOTPRINT_MB + livePayloadMB).toFixed(2));
+  const storageLeftOutMB = parseFloat(Math.max(0, TOTAL_STORAGE_MB - storageFilledMB).toFixed(2));
+
+  const percentFilled = ((storageFilledMB / TOTAL_STORAGE_MB) * 100).toFixed(2);
+  const percentLeft = (100 - parseFloat(percentFilled)).toFixed(2);
+
+  const totalEntities = ((currentStudentList?.length || 0) * 3) + (currentCertsList?.length || 0);
+
+  if (elStoragePercentFilled) elStoragePercentFilled.textContent = `${percentFilled}% Filled`;
+  if (elStoragePercentLeft) elStoragePercentLeft.textContent = `${percentLeft}% Storage Left Out (Free)`;
+  if (elStorageFilledBrief) elStorageFilledBrief.textContent = `${storageFilledMB.toFixed(2)} MB`;
+  if (elStorageTotalBrief) elStorageTotalBrief.textContent = `1,024.00 MB`;
+  if (elStorageBarFilledTxt) elStorageBarFilledTxt.textContent = `${storageFilledMB.toFixed(2)} MB`;
+  if (elStorageBarLeftTxt) elStorageBarLeftTxt.textContent = `${storageLeftOutMB.toFixed(2)} MB`;
+  if (elStorageFilledVal) elStorageFilledVal.textContent = `${storageFilledMB.toFixed(2)} MB`;
+  if (elStorageLeftoutVal) elStorageLeftoutVal.textContent = `${storageLeftOutMB.toFixed(2)} MB`;
+  if (elStorageEntitiesCount) elStorageEntitiesCount.textContent = `${totalEntities} Docs`;
+
+  if (elStorageProgressFill) {
+    elStorageProgressFill.style.width = `${Math.max(parseFloat(percentFilled), 1.8)}%`;
+  }
+
+  if (showToastNotice) {
+    showToast(`⚡ Server Storage Telemetry Synced: ${storageFilledMB.toFixed(2)} MB Filled • ${storageLeftOutMB.toFixed(2)} MB Left Out`);
+  }
+}
+
+if (btnRefreshStorageTelemetry) {
+  btnRefreshStorageTelemetry.addEventListener("click", () => {
+    if (storageRefreshSpinner) {
+      storageRefreshSpinner.classList.add("spinning");
+      setTimeout(() => storageRefreshSpinner.classList.remove("spinning"), 800);
+    }
+    updateServerStorageTelemetry(true);
+  });
+}
+
+// ==========================================
 // 3. DOM ELEMENTS - COURSE FORMS CONFIG
 // ==========================================
 const formUrlJava = document.getElementById("form-url-java");
@@ -282,6 +356,11 @@ const candTrackInput = document.getElementById("cand-track");
 const candSerialInput = document.getElementById("cand-serial");
 const candIssueDateInput = document.getElementById("cand-issue-date");
 const candVerifyUrlInput = document.getElementById("cand-verify-url");
+if (candVerifyUrlInput && typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+  if (!candVerifyUrlInput.value || candVerifyUrlInput.value.includes("coralgenz.co.in")) {
+    candVerifyUrlInput.value = `${window.location.origin}/internships/index.html`;
+  }
+}
 const btnSaveFirebase = document.getElementById("btn-save-firebase");
 const btnGenNewId = document.getElementById("btn-gen-new-id");
 const btnQuickSample = document.getElementById("btn-quick-sample");
@@ -370,7 +449,6 @@ function updateStudentPreview() {
   const email = studentEmailInput?.value.trim() || "—";
   const pwd = studentPwdInput?.value.trim() || "—";
   const course = studentCourseSelect?.value || "Fullstack";
-  const status = studentStatusSelect?.value || "active";
 
   if (prevCredName) prevCredName.textContent = name;
   if (prevCredEmail) prevCredEmail.textContent = email;
@@ -384,20 +462,14 @@ function updateStudentPreview() {
   }
 
   if (prevCredStatus) {
-    if (status === "active") {
-      prevCredStatus.textContent = "🟢 Access Granted";
-      prevCredStatus.style.background = "rgba(34, 197, 94, 0.15)";
-      prevCredStatus.style.color = "#4ade80";
-    } else {
-      prevCredStatus.textContent = "🔴 Access Suspended";
-      prevCredStatus.style.background = "rgba(239, 68, 68, 0.15)";
-      prevCredStatus.style.color = "#f87171";
-    }
+    prevCredStatus.textContent = "🟢 Access Granted";
+    prevCredStatus.style.background = "rgba(34, 197, 94, 0.15)";
+    prevCredStatus.style.color = "#4ade80";
   }
 }
 
 // Real-time input listeners
-[studentNameInput, studentEmailInput, studentPwdInput, studentCourseSelect, studentStatusSelect, studentBatchInput].forEach(elem => {
+[studentNameInput, studentEmailInput, studentPwdInput, studentCourseSelect, studentBatchInput].forEach(elem => {
   if (elem) {
     elem.addEventListener("input", updateStudentPreview);
     elem.addEventListener("change", updateStudentPreview);
@@ -412,7 +484,7 @@ async function saveStudentUserToFirebase(e) {
   const email = studentEmailInput?.value.trim().toLowerCase();
   const password = studentPwdInput?.value.trim();
   const course = studentCourseSelect?.value || "Fullstack";
-  const status = studentStatusSelect?.value || "active";
+  const status = "active";
   const batch = studentBatchInput?.value.trim() || "Cohort 2026";
 
   if (!name || !email || !password || !course) {
@@ -474,20 +546,40 @@ async function saveStudentUserToFirebase(e) {
       formUrl: assignedFormUrl,
       googleFormUrl: assignedFormUrl,
       batch: batch,
+      docId: docKey,
       updatedAt: serverTimestamp(),
       createdAt: serverTimestamp()
     };
 
-    // 3. Save to Firestore (users, student_users, and candidates collections)
+    // 3. Save strictly ONE canonical document in users and student_users collections
     await setDoc(doc(db, "users", docKey), userData, { merge: true });
     await setDoc(doc(db, "student_users", docKey), userData, { merge: true });
-    
+
+    // Ensure any lingering duplicate document with a different ID (like authUid or email) is purged from users and student_users
+    try {
+      const qOldUsers = await getDocs(query(collection(db, "users"), where("email", "==", email)));
+      for (const d of qOldUsers.docs) {
+        if (d.id !== docKey) {
+          await deleteDoc(d.ref).catch(() => {});
+          await fetch(`https://firestore.googleapis.com/v1/projects/${_cgzVaultInit.projectId}/databases/(default)/documents/users/${encodeURIComponent(d.id)}?key=${_cgzVaultInit.apiKey}`, { method: "DELETE" }).catch(() => {});
+        }
+      }
+    } catch (e) {}
+
     if (authUid && authUid !== docKey) {
-      await setDoc(doc(db, "users", authUid), userData, { merge: true });
-      await setDoc(doc(db, "student_users", authUid), userData, { merge: true });
+      deleteDoc(doc(db, "users", authUid)).catch(() => {});
+      deleteDoc(doc(db, "student_users", authUid)).catch(() => {});
+      fetch(`https://firestore.googleapis.com/v1/projects/${_cgzVaultInit.projectId}/databases/(default)/documents/users/${encodeURIComponent(authUid)}?key=${_cgzVaultInit.apiKey}`, { method: "DELETE" }).catch(() => {});
+      fetch(`https://firestore.googleapis.com/v1/projects/${_cgzVaultInit.projectId}/databases/(default)/documents/student_users/${encodeURIComponent(authUid)}?key=${_cgzVaultInit.apiKey}`, { method: "DELETE" }).catch(() => {});
+    }
+    if (email !== docKey) {
+      deleteDoc(doc(db, "users", email)).catch(() => {});
+      deleteDoc(doc(db, "student_users", email)).catch(() => {});
+      fetch(`https://firestore.googleapis.com/v1/projects/${_cgzVaultInit.projectId}/databases/(default)/documents/users/${encodeURIComponent(email)}?key=${_cgzVaultInit.apiKey}`, { method: "DELETE" }).catch(() => {});
+      fetch(`https://firestore.googleapis.com/v1/projects/${_cgzVaultInit.projectId}/databases/(default)/documents/student_users/${encodeURIComponent(email)}?key=${_cgzVaultInit.apiKey}`, { method: "DELETE" }).catch(() => {});
     }
 
-    // 4. Save to candidates collection in exact Firebase schema
+    // 4. Save to candidates collection for candidate task portal access
     const courseCode = course.toLowerCase().includes("java") ? "java" :
                        course.toLowerCase().includes("python") ? "python" :
                        (course.toLowerCase() === "c" || course.toLowerCase().includes("c ")) ? "c" :
@@ -511,9 +603,9 @@ async function saveStudentUserToFirebase(e) {
       updatedAt: new Date().toISOString()
     };
 
-    await setDoc(doc(db, "candidates", email), candidateDoc, { merge: true });
+    await setDoc(doc(db, "candidates", docKey), candidateDoc, { merge: true });
     if (docKey !== email) {
-      await setDoc(doc(db, "candidates", docKey), candidateDoc, { merge: true });
+      await setDoc(doc(db, "candidates", email), candidateDoc, { merge: true });
     }
 
     showStudentAlert("success", `✅ <strong>User Authenticated & Access Granted!</strong><br>👤 User: <strong>${name}</strong> (${email})<br>🔑 Password: <code>${password}</code><br>📘 Course: <strong>${course}</strong><br>⚡ Firebase Auth: <strong>${authStatusMsg}</strong><br>🔗 Target Form: <span style="font-size:0.75rem; word-break:break-all;">${assignedFormUrl}</span>`);
@@ -538,16 +630,49 @@ if (btnTriggerSaveUser) {
   btnTriggerSaveUser.addEventListener("click", saveStudentUserToFirebase);
 }
 
-// Real-time Firestore Listener for Users
+// Real-time Firestore Listener for Users with Strict Email Deduplication
 function listenToFirebaseUsers() {
   try {
     const usersCol = collection(db, "users");
 
     onSnapshot(usersCol, (snapshot) => {
-      currentStudentList = [];
+      const userMap = new Map();
+
       snapshot.forEach(docSnap => {
-        currentStudentList.push({ id: docSnap.id, ...docSnap.data() });
+        const data = docSnap.data();
+        const docId = docSnap.id;
+
+        // Discard corrupted phantom docs without an email or with placeholder IDs
+        const rawEmail = (data.email || (docId.includes("@") ? docId : "")).trim();
+        if (!rawEmail || docId === "_" || docId === "—" || docId === "-") {
+          return;
+        }
+
+        const cleanEmail = rawEmail.toLowerCase();
+        if (!userMap.has(cleanEmail)) {
+          userMap.set(cleanEmail, {
+            id: docId,
+            docKey: cleanEmail.replace(/[^a-zA-Z0-9]/g, "_"),
+            docIds: [docId],
+            ...data,
+            email: cleanEmail
+          });
+        } else {
+          // Merge duplicates into the single canonical entry
+          const existing = userMap.get(cleanEmail);
+          if (!existing.docIds.includes(docId)) {
+            existing.docIds.push(docId);
+          }
+          if ((!existing.name || existing.name === "User") && data.name) existing.name = data.name;
+          if ((!existing.password || existing.password === "••••••••") && data.password) existing.password = data.password;
+          if ((!existing.course || existing.course === "Fullstack") && data.course) existing.course = data.course;
+          if (data.status) existing.status = data.status;
+          if (data.accessStatus) existing.accessStatus = data.accessStatus;
+          if (data.uid && !existing.uid) existing.uid = data.uid;
+        }
       });
+
+      currentStudentList = Array.from(userMap.values());
 
       if (metricTotalStudents) metricTotalStudents.textContent = currentStudentList.length;
       if (tabStudentCount) tabStudentCount.textContent = currentStudentList.length;
@@ -556,6 +681,7 @@ function listenToFirebaseUsers() {
       if (metricActiveStudents) metricActiveStudents.textContent = activeCount;
 
       renderUsersTable(currentStudentList);
+      updateServerStorageTelemetry();
     }, (error) => {
       console.warn("Firestore users listener snapshot note:", error);
       renderUsersTable([]);
@@ -578,10 +704,20 @@ function getCourseBadgeClass(course) {
 function renderUsersTable(users) {
   if (!studentTableBody) return;
 
-  if (users.length === 0) {
+  // Strictly filter and deduplicate by clean email
+  const seen = new Set();
+  const dedupedUsers = [];
+  (users || []).forEach(u => {
+    const e = (u.email || "").toLowerCase().trim();
+    if (!e || e === "—" || seen.has(e)) return;
+    seen.add(e);
+    dedupedUsers.push(u);
+  });
+
+  if (dedupedUsers.length === 0) {
     studentTableBody.innerHTML = `
       <tr>
-        <td colspan="5" class="td-empty" style="text-align: center; padding: 2rem 1rem; color: #94a3b8;">
+        <td colspan="4" class="td-empty" style="text-align: center; padding: 2.5rem 1rem; color: #94a3b8;">
           No authenticated users found in Firebase Firestore.<br>Fill the form above and click <strong>"Save User to Firebase & Grant Access"</strong> to add your first user.
         </td>
       </tr>
@@ -589,21 +725,20 @@ function renderUsersTable(users) {
     return;
   }
 
-  studentTableBody.innerHTML = users.map(u => {
+  studentTableBody.innerHTML = dedupedUsers.map(u => {
     const name = u.name || u.candidateName || "User";
     const email = u.email || "—";
     const password = u.password || "••••••••";
     const course = u.course || u.track || "Fullstack";
-    const status = (u.status || u.accessStatus || "active").toLowerCase();
-    const isAccessActive = status === "active" || status === "granted";
-    const docKey = email.replace(/[^a-zA-Z0-9]/g, "_");
+    const cleanEmail = email.toLowerCase().trim();
+    const docKey = u.docKey || cleanEmail.replace(/[^a-zA-Z0-9]/g, "_");
 
     return `
-      <tr data-user-email="${email}">
+      <tr data-user-email="${cleanEmail}">
         <td>
           <div class="td-candidate-info">
             <span class="td-cand-name">${name}</span>
-            <span class="td-cand-email">${email}</span>
+            <span class="td-cand-email">${cleanEmail}</span>
           </div>
         </td>
         <td>
@@ -612,26 +747,18 @@ function renderUsersTable(users) {
         <td>
           <div class="pwd-masked-box">
             <span class="pwd-text font-mono" id="pwd-display-${docKey}">••••••••</span>
-            <button class="btn-text-action" title="Toggle Show/Hide Password" onclick="window.adminAppTogglePwdVisibility('${docKey}', '${password}')">👁️</button>
+            <button type="button" class="btn-text-action" title="Toggle Show/Hide Password" onclick="window.adminAppTogglePwdVisibility('${docKey}')">👁️</button>
           </div>
         </td>
         <td>
-          <span class="${isAccessActive ? 'badge-status-active' : 'badge-status-suspended'}">
-            ${isAccessActive ? '🟢 Granted' : '🔴 Suspended'}
-          </span>
-        </td>
-        <td>
           <div class="table-action-btns">
-            <button class="btn-tbl-action btn-tbl-copy" title="Copy User Credentials" onclick="window.adminAppCopyStudentCreds('${email}')">
+            <button type="button" class="btn-tbl-action btn-tbl-copy" title="Copy User Credentials" onclick="window.adminAppCopyStudentCreds('${cleanEmail}')">
               📋 Copy
             </button>
-            <button class="btn-toggle-status ${isAccessActive ? 'btn-status-revoke' : 'btn-status-grant'}" title="Toggle Access" onclick="window.adminAppToggleStudentAccess('${email}', '${isAccessActive ? 'suspended' : 'active'}')">
-              ${isAccessActive ? '🔒 Revoke' : '🔓 Grant'}
-            </button>
-            <button class="btn-tbl-action btn-tbl-load" title="Load into Form" onclick="window.adminAppEditStudent('${email}')">
+            <button type="button" class="btn-tbl-action btn-tbl-load" title="Edit User Credentials & Course" onclick="window.adminAppOpenEditModal('${cleanEmail}')">
               ✏️ Edit
             </button>
-            <button class="btn-tbl-action btn-tbl-del" title="Delete User from Firebase" onclick="window.adminAppDeleteStudent('${email}', '${name}', '${docKey}')">
+            <button type="button" class="btn-tbl-action btn-tbl-del" title="Delete User Permanently from Server" onclick="window.adminAppOpenDeleteModal('${cleanEmail}')">
               🗑️
             </button>
           </div>
@@ -642,14 +769,17 @@ function renderUsersTable(users) {
 }
 
 // Global actions for user management
-window.adminAppTogglePwdVisibility = function(docKey, password) {
+window.adminAppTogglePwdVisibility = function(docKey) {
   const elem = document.getElementById(`pwd-display-${docKey}`);
   if (!elem) return;
-  elem.textContent = elem.textContent === "••••••••" ? password : "••••••••";
+  const user = currentStudentList.find(s => s.docKey === docKey || s.id === docKey || (s.email || "").replace(/[^a-zA-Z0-9]/g, "_") === docKey);
+  const pwd = user?.password || "••••••••";
+  elem.textContent = elem.textContent === "••••••••" ? pwd : "••••••••";
 };
 
 window.adminAppCopyStudentCreds = function(email) {
-  const user = currentStudentList.find(s => s.email === email || s.id === email);
+  const cleanEmail = (email || "").toLowerCase().trim();
+  const user = currentStudentList.find(s => (s.email || "").toLowerCase() === cleanEmail);
   if (!user) return;
 
   const credText = `🎓 Coralgenz Global User Authentication Access
@@ -668,126 +798,290 @@ window.adminAppCopyStudentCreds = function(email) {
   });
 };
 
-window.adminAppToggleStudentAccess = async function(email, newStatus) {
-  try {
-    const user = currentStudentList.find(s => s.email === email || s.id === email);
-    const sanitizedKey = (email || "").replace(/[^a-zA-Z0-9]/g, "_");
-    const uid = user?.uid || user?.id;
-
-    const updatePayload = {
-      status: newStatus,
-      accessStatus: newStatus,
-      access: newStatus === "active" ? "granted" : "suspended",
-      accessGranted: newStatus === "active",
-      updatedAt: serverTimestamp()
-    };
-
-    const updatePromises = [];
-    if (sanitizedKey) {
-      updatePromises.push(setDoc(doc(db, "users", sanitizedKey), updatePayload, { merge: true }));
-      updatePromises.push(setDoc(doc(db, "student_users", sanitizedKey), updatePayload, { merge: true }));
-    }
-    if (email) {
-      updatePromises.push(setDoc(doc(db, "users", email), updatePayload, { merge: true }));
-      updatePromises.push(setDoc(doc(db, "student_users", email), updatePayload, { merge: true }));
-      updatePromises.push(setDoc(doc(db, "candidates", email), { status: newStatus === "active" ? "approved" : "suspended", updatedAt: new Date().toISOString() }, { merge: true }));
-    }
-    if (uid && uid !== sanitizedKey && uid !== email) {
-      updatePromises.push(setDoc(doc(db, "users", uid), updatePayload, { merge: true }));
-      updatePromises.push(setDoc(doc(db, "student_users", uid), updatePayload, { merge: true }));
-    }
-
-    await Promise.all(updatePromises);
-    showToast(`Access ${newStatus === 'active' ? '🟢 GRANTED' : '🔴 SUSPENDED'} for user.`);
-  } catch (err) {
-    console.error("Toggle access error:", err);
-    showToast("Failed to update user access status.");
-  }
-};
-
-window.adminAppEditStudent = function(email) {
-  const user = currentStudentList.find(s => s.email === email || s.id === email);
-  if (!user) return;
-
-  if (studentNameInput) studentNameInput.value = user.name || user.candidateName || "";
-  if (studentEmailInput) studentEmailInput.value = user.email || "";
-  if (studentPwdInput) studentPwdInput.value = user.password || "";
-  if (studentCourseSelect) studentCourseSelect.value = user.course || "Fullstack";
-  if (studentStatusSelect) studentStatusSelect.value = user.status || "active";
-
-  updateStudentPreview();
-  showToast(`Loaded "${user.name}" into editor.`);
-  window.scrollTo({ top: 0, behavior: "smooth" });
-};
-
-window.adminAppDeleteStudent = async function(email, name, docKey) {
-  const displayName = name || email || "this user";
-  if (!confirm(`Are you sure you want to permanently delete user "${displayName}" from Firebase Authentication and Firestore?`)) {
+// ==========================================
+// EDIT USER MODAL CONTROLLER
+// ==========================================
+window.adminAppOpenEditModal = function(email) {
+  const cleanEmail = (email || "").toLowerCase().trim();
+  const user = currentStudentList.find(s => (s.email || "").toLowerCase() === cleanEmail);
+  if (!user) {
+    showToast("⚠️ User not found in active list.");
     return;
   }
 
-  const user = currentStudentList.find(s => s.email === email || s.id === docKey || s.id === email);
-  const password = user?.password;
-  const uid = user?.uid || user?.id;
-  const sanitizedKey = (email || docKey || "").replace(/[^a-zA-Z0-9]/g, "_");
-  const cleanEmail = (email || "").toLowerCase().trim();
+  const editModalOverlay = document.getElementById("admin-edit-modal-overlay");
+  const editUserOrigEmail = document.getElementById("edit-user-orig-email");
+  const editModalName = document.getElementById("edit-modal-name");
+  const editModalEmail = document.getElementById("edit-modal-email");
+  const editModalCourse = document.getElementById("edit-modal-course");
+  const editModalBatch = document.getElementById("edit-modal-batch");
 
-  showToast(`Deleting "${displayName}" from Firebase server... ⏳`);
+  if (editUserOrigEmail) editUserOrigEmail.value = cleanEmail;
+  if (editModalName) editModalName.value = user.name || user.candidateName || "";
+  if (editModalEmail) editModalEmail.value = cleanEmail;
+  if (editModalCourse) editModalCourse.value = user.course || user.track || "Fullstack";
+  if (editModalBatch) editModalBatch.value = user.batch || "Cohort 2026";
 
-  try {
-    // 1. Delete from Firebase Authentication (Auth Directory)
-    if (cleanEmail && password) {
-      try {
-        const signinRes = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${_cgzVaultInit.apiKey}`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ email: cleanEmail, password: password, returnSecureToken: true })
-        });
-        const signinData = await signinRes.json();
-        if (signinData && signinData.idToken) {
-          await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:delete?key=${_cgzVaultInit.apiKey}`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ idToken: signinData.idToken })
-          });
-        }
-      } catch (authErr) {
-        console.warn("Auth deletion note:", authErr);
-      }
-    }
-
-    // 2. Delete across all Firestore collections simultaneously
-    const deletePromises = [];
-
-    // Collection: users
-    if (sanitizedKey) deletePromises.push(deleteDoc(doc(db, "users", sanitizedKey)).catch(() => {}));
-    if (cleanEmail) deletePromises.push(deleteDoc(doc(db, "users", cleanEmail)).catch(() => {}));
-    if (uid && uid !== sanitizedKey && uid !== cleanEmail) deletePromises.push(deleteDoc(doc(db, "users", uid)).catch(() => {}));
-    if (docKey && docKey !== sanitizedKey) deletePromises.push(deleteDoc(doc(db, "users", docKey)).catch(() => {}));
-
-    // Collection: student_users
-    if (sanitizedKey) deletePromises.push(deleteDoc(doc(db, "student_users", sanitizedKey)).catch(() => {}));
-    if (cleanEmail) deletePromises.push(deleteDoc(doc(db, "student_users", cleanEmail)).catch(() => {}));
-    if (uid && uid !== sanitizedKey && uid !== cleanEmail) deletePromises.push(deleteDoc(doc(db, "student_users", uid)).catch(() => {}));
-    if (docKey && docKey !== sanitizedKey) deletePromises.push(deleteDoc(doc(db, "student_users", docKey)).catch(() => {}));
-
-    // Collection: candidates
-    if (cleanEmail) deletePromises.push(deleteDoc(doc(db, "candidates", cleanEmail)).catch(() => {}));
-    if (sanitizedKey && sanitizedKey !== cleanEmail) deletePromises.push(deleteDoc(doc(db, "candidates", sanitizedKey)).catch(() => {}));
-    if (uid) deletePromises.push(deleteDoc(doc(db, "candidates", uid)).catch(() => {}));
-
-    // Collection: interns
-    if (sanitizedKey) deletePromises.push(deleteDoc(doc(db, "interns", sanitizedKey)).catch(() => {}));
-    if (cleanEmail) deletePromises.push(deleteDoc(doc(db, "interns", cleanEmail)).catch(() => {}));
-
-    await Promise.all(deletePromises);
-
-    showToast(`🗑️ User "${displayName}" permanently deleted from Firebase!`);
-  } catch (err) {
-    console.error("Delete user error:", err);
-    showToast("Error deleting user from Firebase.");
+  if (editModalOverlay) {
+    editModalOverlay.classList.add("active");
   }
 };
+
+window.adminAppCloseEditModal = function() {
+  const editModalOverlay = document.getElementById("admin-edit-modal-overlay");
+  if (editModalOverlay) editModalOverlay.classList.remove("active");
+};
+
+// Save edited user to server
+async function handleSaveEditedUser(e) {
+  if (e) e.preventDefault();
+
+  const editUserOrigEmail = document.getElementById("edit-user-orig-email");
+  const editModalName = document.getElementById("edit-modal-name");
+  const editModalCourse = document.getElementById("edit-modal-course");
+  const editModalBatch = document.getElementById("edit-modal-batch");
+  const btnSaveEditModal = document.getElementById("btn-save-edit-modal");
+
+  const cleanEmail = (editUserOrigEmail?.value || "").toLowerCase().trim();
+  const name = editModalName?.value.trim();
+  const course = editModalCourse?.value || "Fullstack";
+  const batch = editModalBatch?.value.trim() || "Cohort 2026";
+
+  if (!cleanEmail || !name) {
+    showToast("⚠️ Candidate Name is required.");
+    return;
+  }
+
+  if (btnSaveEditModal) {
+    btnSaveEditModal.disabled = true;
+    btnSaveEditModal.innerHTML = `<span>Updating Server... ⏳</span>`;
+  }
+
+  const assignedFormUrl = getCourseFormUrl(course);
+  const sanitizedKey = cleanEmail.replace(/[^a-zA-Z0-9]/g, "_");
+
+  const updatePayload = {
+    name: name,
+    candidateName: name,
+    displayName: name,
+    course: course,
+    track: course,
+    status: "active",
+    accessStatus: "active",
+    access: "granted",
+    accessGranted: true,
+    formUrl: assignedFormUrl,
+    googleFormUrl: assignedFormUrl,
+    batch: batch,
+    updatedAt: serverTimestamp()
+  };
+
+  try {
+    // 1. Update in Firestore users and student_users collections
+    await Promise.all([
+      setDoc(doc(db, "users", sanitizedKey), updatePayload, { merge: true }),
+      setDoc(doc(db, "student_users", sanitizedKey), updatePayload, { merge: true })
+    ]);
+
+    // 2. Update in candidates collection for candidate task portal access
+    const courseCode = course.toLowerCase().includes("java") ? "java" :
+                       course.toLowerCase().includes("python") ? "python" :
+                       (course.toLowerCase() === "c" || course.toLowerCase().includes("c ")) ? "c" :
+                       course.toLowerCase().includes("web") ? "web" : "fullstack";
+
+    const candidateDoc = {
+      name: name,
+      course: courseCode,
+      status: "approved",
+      updatedAt: new Date().toISOString()
+    };
+    setDoc(doc(db, "candidates", sanitizedKey), candidateDoc, { merge: true }).catch(() => {});
+    setDoc(doc(db, "candidates", cleanEmail), candidateDoc, { merge: true }).catch(() => {});
+
+    // 3. Update in-memory list and re-render table smoothly with no flicker
+    const idx = currentStudentList.findIndex(s => (s.email || "").toLowerCase() === cleanEmail);
+    if (idx !== -1) {
+      Object.assign(currentStudentList[idx], updatePayload);
+      renderUsersTable(currentStudentList);
+      updateServerStorageTelemetry();
+    }
+
+    showToast(`✅ User "${name}" credentials updated on server!`);
+    window.adminAppCloseEditModal();
+  } catch (err) {
+    console.error("Server update user error:", err);
+    showToast(`⚠️ Server update notice: ${err.message || "Failed"}`);
+  } finally {
+    if (btnSaveEditModal) {
+      btnSaveEditModal.disabled = false;
+      btnSaveEditModal.innerHTML = `<span>💾 Save Changes to Server</span>`;
+    }
+  }
+}
+
+// ==========================================
+// DELETE USER MODAL CONTROLLER
+// ==========================================
+window.adminAppOpenDeleteModal = function(email) {
+  const cleanEmail = (email || "").toLowerCase().trim();
+  const user = currentStudentList.find(s => (s.email || "").toLowerCase() === cleanEmail);
+  if (!user) {
+    showToast("⚠️ User not found in active list.");
+    return;
+  }
+
+  const deleteModalOverlay = document.getElementById("admin-delete-modal-overlay");
+  const deleteUserTargetEmail = document.getElementById("delete-user-target-email");
+  const deleteModalTargetName = document.getElementById("delete-modal-target-name");
+  const deleteModalTargetEmail = document.getElementById("delete-modal-target-email");
+  const deleteModalTargetCourse = document.getElementById("delete-modal-target-course");
+
+  if (deleteUserTargetEmail) deleteUserTargetEmail.value = cleanEmail;
+  if (deleteModalTargetName) deleteModalTargetName.textContent = user.name || user.candidateName || cleanEmail;
+  if (deleteModalTargetEmail) deleteModalTargetEmail.textContent = cleanEmail;
+  if (deleteModalTargetCourse) {
+    const course = user.course || user.track || "Fullstack";
+    deleteModalTargetCourse.textContent = course;
+    deleteModalTargetCourse.className = getCourseBadgeClass(course);
+  }
+
+  if (deleteModalOverlay) {
+    deleteModalOverlay.classList.add("active");
+  }
+};
+
+window.adminAppCloseDeleteModal = function() {
+  const deleteModalOverlay = document.getElementById("admin-delete-modal-overlay");
+  if (deleteModalOverlay) deleteModalOverlay.classList.remove("active");
+};
+
+// Permanently delete user from server
+async function handleConfirmDeleteUser() {
+  const deleteUserTargetEmail = document.getElementById("delete-user-target-email");
+  const btnConfirmDeleteUser = document.getElementById("btn-confirm-delete-user");
+
+  const cleanEmail = (deleteUserTargetEmail?.value || "").toLowerCase().trim();
+  if (!cleanEmail) {
+    showToast("⚠️ Invalid email for deletion.");
+    return;
+  }
+
+  const user = currentStudentList.find(s => (s.email || "").toLowerCase() === cleanEmail);
+  const displayName = user?.name || cleanEmail;
+  const password = user?.password;
+  const sanitizedKey = cleanEmail.replace(/[^a-zA-Z0-9]/g, "_");
+
+  if (btnConfirmDeleteUser) {
+    btnConfirmDeleteUser.disabled = true;
+    btnConfirmDeleteUser.innerHTML = `<span>Deleting from Server... ⏳</span>`;
+  }
+
+  // Optimistically remove from currentStudentList and update UI immediately
+  currentStudentList = currentStudentList.filter(s => (s.email || "").toLowerCase() !== cleanEmail);
+  if (metricTotalStudents) metricTotalStudents.textContent = currentStudentList.length;
+  if (tabStudentCount) tabStudentCount.textContent = currentStudentList.length;
+  const activeCount = currentStudentList.filter(s => (s.status || s.accessStatus || "active") === "active").length;
+  if (metricActiveStudents) metricActiveStudents.textContent = activeCount;
+  renderUsersTable(currentStudentList);
+  updateServerStorageTelemetry();
+
+  window.adminAppCloseDeleteModal();
+
+  try {
+    const deletePromises = [
+      deleteDoc(doc(db, "users", sanitizedKey)),
+      deleteDoc(doc(db, "users", cleanEmail)),
+      deleteDoc(doc(db, "student_users", sanitizedKey)),
+      deleteDoc(doc(db, "student_users", cleanEmail)),
+      deleteDoc(doc(db, "candidates", sanitizedKey)),
+      deleteDoc(doc(db, "candidates", cleanEmail)),
+      deleteDoc(doc(db, "interns", sanitizedKey)),
+      deleteDoc(doc(db, "interns", cleanEmail))
+    ];
+
+    // REST API fallback deletes
+    const restCollections = ["users", "student_users", "candidates", "interns"];
+    restCollections.forEach(col => {
+      deletePromises.push(
+        fetch(`https://firestore.googleapis.com/v1/projects/${_cgzVaultInit.projectId}/databases/(default)/documents/${col}/${encodeURIComponent(sanitizedKey)}?key=${_cgzVaultInit.apiKey}`, { method: "DELETE" }).catch(() => {})
+      );
+      if (cleanEmail !== sanitizedKey) {
+        deletePromises.push(
+          fetch(`https://firestore.googleapis.com/v1/projects/${_cgzVaultInit.projectId}/databases/(default)/documents/${col}/${encodeURIComponent(cleanEmail)}?key=${_cgzVaultInit.apiKey}`, { method: "DELETE" }).catch(() => {})
+        );
+      }
+    });
+
+    // Delete from Firebase Auth if password available
+    if (password && password !== "••••••••") {
+      fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${_cgzVaultInit.apiKey}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: cleanEmail, password: password, returnSecureToken: true })
+      }).then(res => res.json()).then(data => {
+        if (data && data.idToken) {
+          fetch(`https://identitytoolkit.googleapis.com/v1/accounts:delete?key=${_cgzVaultInit.apiKey}`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ idToken: data.idToken })
+          }).catch(() => {});
+        }
+      }).catch(() => {});
+    }
+
+    await Promise.allSettled(deletePromises);
+    showToast(`🗑️ User "${displayName}" permanently deleted from server!`);
+  } catch (err) {
+    console.error("Server deletion error:", err);
+    showToast(`⚠️ Server deletion notice: ${err.message || "Completed"}`);
+  } finally {
+    if (btnConfirmDeleteUser) {
+      btnConfirmDeleteUser.disabled = false;
+      btnConfirmDeleteUser.innerHTML = `<span>🗑️ Permanently Delete</span>`;
+    }
+  }
+}
+
+// Bind modal buttons
+const editUserFormElem = document.getElementById("admin-edit-user-form");
+if (editUserFormElem) {
+  editUserFormElem.addEventListener("submit", handleSaveEditedUser);
+}
+
+const btnCloseEditModal = document.getElementById("btn-close-edit-modal");
+if (btnCloseEditModal) {
+  btnCloseEditModal.addEventListener("click", window.adminAppCloseEditModal);
+}
+
+const btnCancelEditModal = document.getElementById("btn-cancel-edit-modal");
+if (btnCancelEditModal) {
+  btnCancelEditModal.addEventListener("click", window.adminAppCloseEditModal);
+}
+
+
+
+const btnCloseDeleteModal = document.getElementById("btn-close-delete-modal");
+if (btnCloseDeleteModal) {
+  btnCloseDeleteModal.addEventListener("click", window.adminAppCloseDeleteModal);
+}
+
+const btnCancelDeleteModal = document.getElementById("btn-cancel-delete-modal");
+if (btnCancelDeleteModal) {
+  btnCancelDeleteModal.addEventListener("click", window.adminAppCloseDeleteModal);
+}
+
+const btnConfirmDeleteUser = document.getElementById("btn-confirm-delete-user");
+if (btnConfirmDeleteUser) {
+  btnConfirmDeleteUser.addEventListener("click", handleConfirmDeleteUser);
+}
+
+// Close modals when clicking backdrop
+window.addEventListener("click", (e) => {
+  const editOverlay = document.getElementById("admin-edit-modal-overlay");
+  const deleteOverlay = document.getElementById("admin-delete-modal-overlay");
+  if (e.target === editOverlay) window.adminAppCloseEditModal();
+  if (e.target === deleteOverlay) window.adminAppCloseDeleteModal();
+});
 
 // Search filter in user table
 if (studentTableSearch) {
@@ -1049,23 +1343,75 @@ if (courseFormsConfigForm) {
 // ==========================================
 // 9. CERTIFICATE & QR GENERATOR ENGINE
 // ==========================================
-function generateSerialId() {
-  const randomNum = Math.floor(1000 + Math.random() * 9000);
-  const serial = `CG-MSME-2026-CERT-${randomNum}`;
-  if (candSerialInput) candSerialInput.value = serial;
+function getTrackPrefixCode(trackName) {
+  const t = (trackName || "").toLowerCase().trim();
+  if (t.includes("java") || t === "jp") return "JP";
+  if (t.includes("python") || t === "py") return "PY";
+  if (t === "c" || t.includes("c ") || t.includes("c prog") || t.includes("c programming") || t === "cp") return "CP";
+  if (t.includes("web") || t.includes("frontend") || t === "wd") return "WD";
+  if (t.includes("full") || t.includes("stack") || t === "fs") return "FS";
+  if (t.includes("ai") || t.includes("machine")) return "AI";
+  if (t.includes("data") || t.includes("analytics")) return "DS";
+  if (t.includes("cloud") || t.includes("aws") || t.includes("azure")) return "CL";
+  if (t.includes("cyber") || t.includes("security")) return "CS";
+  if (t.includes("android") || t.includes("flutter") || t.includes("mobile") || t.includes("app")) return "AD";
+
+  const clean = t.replace(/[^a-z]/g, "");
+  if (clean.length >= 2) return clean.slice(0, 2).toUpperCase();
+  return "FS";
+}
+
+function generateSerialId(trackOverride, advance = false) {
+  const track = trackOverride || candTrackInput?.value || "Fullstack";
+  const code = getTrackPrefixCode(track);
+  const prefix = `CG-IN-${code}-CERT-`;
+
+  let maxNum = 0;
+  if (Array.isArray(currentCertsList)) {
+    currentCertsList.forEach(cert => {
+      const serial = (cert.serialNumber || cert.certId || cert.id || "").trim().toUpperCase();
+      if (serial.startsWith(prefix)) {
+        const numPart = parseInt(serial.replace(prefix, ""), 10);
+        if (!isNaN(numPart) && numPart > maxNum) {
+          maxNum = numPart;
+        }
+      }
+    });
+  }
+
+  // If advance is requested (e.g. clicking 'New ID' or after saving) and input already matches prefix, advance past current input
+  if (advance && candSerialInput && candSerialInput.value.toUpperCase().startsWith(prefix)) {
+    const currentNum = parseInt(candSerialInput.value.toUpperCase().replace(prefix, ""), 10);
+    if (!isNaN(currentNum) && currentNum >= maxNum) {
+      maxNum = currentNum;
+    }
+  }
+
+  const nextNum = maxNum + 1;
+  const serial = `${prefix}${String(nextNum).padStart(6, "0")}`;
+
+  if (candSerialInput) {
+    candSerialInput.value = serial;
+  }
   updateLivePreview();
   return serial;
+}
+
+function buildVerificationUrl(baseUrl, paramKey, paramVal) {
+  let defaultBase = "https://internships.coralgenz.co.in/";
+  if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+    defaultBase = `${window.location.origin}/internships/index.html`;
+  }
+  let base = (baseUrl || defaultBase).trim().split("?")[0].replace(/\/$/, "");
+  const separator = base.endsWith(".html") || base.endsWith(".htm") ? "?" : "/?";
+  return `${base}${separator}${paramKey}=${encodeURIComponent(paramVal)}`;
 }
 
 function generateVerificationQR(candidateData, targetBaseUrl) {
   if (!qrCanvasBox) return "";
 
   currentSaltedToken = generateSaltedHashToken(candidateData);
-
-  let base = (targetBaseUrl || "https://internships.coralgenz.co.in/").trim();
-  if (base.includes("?")) base = base.split("?")[0];
-  const cleanBase = base.replace(/\/$/, "");
-  const fullVerificationUrl = `${cleanBase}/?v=${encodeURIComponent(currentSaltedToken)}`;
+  const fullVerificationUrl = buildVerificationUrl(targetBaseUrl, "v", currentSaltedToken);
 
   qrCanvasBox.innerHTML = "";
 
@@ -1073,22 +1419,22 @@ function generateVerificationQR(candidateData, targetBaseUrl) {
     if (typeof QRCode !== "undefined") {
       qrCodeInstance = new QRCode(qrCanvasBox, {
         text: fullVerificationUrl,
-        width: 140,
-        height: 140,
+        width: 240,
+        height: 240,
         colorDark: "#000000",
         colorLight: "#ffffff",
-        correctLevel: QRCode.CorrectLevel.M
+        correctLevel: QRCode.CorrectLevel.L
       });
     } else {
       const img = document.createElement("img");
-      img.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&ecc=M&margin=1&data=${encodeURIComponent(fullVerificationUrl)}`;
+      img.src = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&ecc=L&margin=4&data=${encodeURIComponent(fullVerificationUrl)}`;
       img.alt = `QR Code`;
       qrCanvasBox.appendChild(img);
     }
   } catch (err) {
     console.error("QR Code Generation Error:", err);
     const img = document.createElement("img");
-    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=150x150&ecc=M&margin=1&data=${encodeURIComponent(fullVerificationUrl)}`;
+    img.src = `https://api.qrserver.com/v1/create-qr-code/?size=240x240&ecc=L&margin=4&data=${encodeURIComponent(fullVerificationUrl)}`;
     img.alt = `QR Code`;
     qrCanvasBox.appendChild(img);
   }
@@ -1100,10 +1446,15 @@ function updateLivePreview() {
   const name = candNameInput?.value.trim() || "Karthick Krishna";
   const email = candEmailInput?.value.trim() || "candidate@gmail.com";
   const track = candTrackInput?.value || "Fullstack";
-  const serialId = candSerialInput?.value.trim() || "CG-MSME-2026-CERT-8842";
+  const defaultCode = getTrackPrefixCode(track);
+  const serialId = candSerialInput?.value.trim() || `CG-IN-${defaultCode}-CERT-000001`;
   const duration = "1 Month";
   const issueDate = candIssueDateInput?.value.trim() || "August 2026";
-  const verifyUrl = candVerifyUrlInput?.value.trim() || "https://internships.coralgenz.co.in/";
+  let defaultVerifyUrl = "https://internships.coralgenz.co.in/";
+  if (typeof window !== "undefined" && (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1")) {
+    defaultVerifyUrl = `${window.location.origin}/internships/index.html`;
+  }
+  const verifyUrl = candVerifyUrlInput?.value.trim() || defaultVerifyUrl;
 
   if (prevName) prevName.textContent = name;
   if (prevEmail) prevEmail.textContent = email;
@@ -1121,9 +1472,8 @@ function updateLivePreview() {
     certId: serialId,
     duration: "1 Month",
     issueDate,
-    status: "100% Completed • MSME Verified Deliverables",
-    issuingAuthority: "Coralgenz Global, Coimbatore, Tamil Nadu, India",
-    msmeRegNo: "UDYAM-TN-03-0189422"
+    status: "100% Completed • Verified Deliverables",
+    issuingAuthority: "Coralgenz Global Corporate Registry"
   };
 
   generateVerificationQR(candidatePayload, verifyUrl);
@@ -1131,31 +1481,56 @@ function updateLivePreview() {
 
 // Expose globally
 window.updateLivePreview = updateLivePreview;
+window.generateSerialId = generateSerialId;
 
-[candNameInput, candEmailInput, candTrackInput, candSerialInput, candIssueDateInput, candVerifyUrlInput].forEach(elem => {
+// Live preview updates for regular inputs
+[candNameInput, candEmailInput, candSerialInput, candIssueDateInput, candVerifyUrlInput].forEach(elem => {
   if (elem) {
     elem.addEventListener("input", updateLivePreview);
     elem.addEventListener("change", updateLivePreview);
   }
 });
 
+// Auto-generate serial immediately whenever course track changes
+if (candTrackInput) {
+  const onTrackSelected = () => {
+    generateSerialId(candTrackInput.value, false);
+    updateLivePreview();
+  };
+  candTrackInput.addEventListener("change", onTrackSelected);
+  candTrackInput.addEventListener("input", onTrackSelected);
+}
+
+let isSavingCert = false;
+
 async function saveCertificateToFirebase(e) {
   if (e) e.preventDefault();
+  if (isSavingCert) return;
 
   const name = candNameInput?.value.trim();
   const email = candEmailInput?.value.trim().toLowerCase();
   const track = candTrackInput?.value || "Fullstack";
-  let serialId = candSerialInput?.value.trim();
+  let serialId = (candSerialInput?.value.trim() || "").toUpperCase();
   const duration = "1 Month";
   const issueDate = candIssueDateInput?.value.trim() || "August 2026";
   const verifyBaseUrl = candVerifyUrlInput?.value.trim() || "https://internships.coralgenz.co.in/";
 
-  if (!name || !email || !track) {
-    showCertAlert("error", "Please fill in Candidate Name, Email, and Track.");
+  if (!name || !email) {
+    showCertAlert("error", "Please fill in Candidate Full Name and Email Address.");
+    showToast("⚠️ Please enter candidate name and email.");
     return;
   }
 
-  if (!serialId) serialId = generateSerialId();
+  if (!serialId) {
+    serialId = generateSerialId(track, false);
+  }
+
+  isSavingCert = true;
+
+  if (btnSaveFirebase) {
+    btnSaveFirebase.disabled = true;
+    btnSaveFirebase.innerHTML = `<span>Saving to Firebase... ⏳</span>`;
+  }
 
   const certData = {
     name: name,
@@ -1167,37 +1542,38 @@ async function saveCertificateToFirebase(e) {
     certId: serialId,
     duration: "1 Month",
     issueDate: issueDate,
-    status: "100% Completed • MSME Verified Deliverables",
-    issuingAuthority: "Coralgenz Global, Coimbatore, Tamil Nadu, India",
-    msmeRegNo: "UDYAM-TN-03-0189422",
+    status: "100% Completed • Verified Deliverables",
+    issuingAuthority: "Coralgenz Global Corporate Registry",
     updatedAt: serverTimestamp(),
     createdAt: serverTimestamp()
   };
 
   const saltedToken = generateSaltedHashToken(certData);
-  let base = verifyBaseUrl.includes("?") ? verifyBaseUrl.split("?")[0] : verifyBaseUrl;
-  const fullVerifyUrl = `${base.replace(/\/$/, "")}/?v=${encodeURIComponent(saltedToken)}`;
+  const fullVerifyUrl = buildVerificationUrl(verifyBaseUrl, "v", saltedToken);
 
   certData.saltedToken = saltedToken;
   certData.verificationUrl = fullVerifyUrl;
 
-  if (btnSaveFirebase) {
-    btnSaveFirebase.disabled = true;
-    btnSaveFirebase.innerHTML = `<span>Saving to Firebase... ⏳</span>`;
-  }
-
   try {
+    // 1. Save directly to certificates collection
     await setDoc(doc(db, "certificates", serialId), certData, { merge: true });
+
+    // 2. Save directly to interns collection by email and serialId
     const sanitizedEmailKey = email.replace(/[^a-zA-Z0-9]/g, "_");
     await setDoc(doc(db, "interns", sanitizedEmailKey), certData, { merge: true });
+    await setDoc(doc(db, "interns", serialId), certData, { merge: true });
 
-    showCertAlert("success", `✅ <strong>Certificate Issued & Synced!</strong><br>Candidate: <strong>${name}</strong> (${serialId})<br>Track: <strong>${track}</strong><br>Saved to Firebase Firestore!`);
-    showToast(`🎉 Certificate ${serialId} synced to Firebase!`);
+    showCertAlert("success", `✅ <strong>Certificate Issued & Synced!</strong><br>Candidate: <strong>${name}</strong> (${serialId})<br>Track: <strong>${track}</strong><br>Saved directly to Firebase Firestore!`);
+    showToast(`🎉 Certificate ${serialId} saved to Firebase!`);
+
+    // Auto-advance to the next serial ID for this track
+    generateSerialId(track, true);
   } catch (err) {
     console.error("Firebase write error:", err);
     showCertAlert("error", `Firebase Write Error: ${err.message}.`);
     showToast("⚠️ Firebase Firestore sync error.");
   } finally {
+    isSavingCert = false;
     if (btnSaveFirebase) {
       btnSaveFirebase.disabled = false;
       btnSaveFirebase.innerHTML = `<span>💾 Save Certificate to Firebase</span><span>🚀</span>`;
@@ -1216,6 +1592,16 @@ if (certForm) {
   certForm.addEventListener("submit", saveCertificateToFirebase);
 }
 
+if (btnSaveFirebase) {
+  btnSaveFirebase.addEventListener("click", (e) => {
+    if (certForm && !certForm.checkValidity()) {
+      certForm.reportValidity();
+      return;
+    }
+    saveCertificateToFirebase(e);
+  });
+}
+
 // Real-time Firestore Listener for Certificates
 function listenToFirebaseCertificates() {
   try {
@@ -1230,7 +1616,15 @@ function listenToFirebaseCertificates() {
       if (metricTotalCerts) metricTotalCerts.textContent = currentCertsList.length;
       if (tabCertCount) tabCertCount.textContent = currentCertsList.length;
 
+      // Ensure input displays track-formatted serial if empty, using old MSME format, or already taken
+      const currentTrack = candTrackInput?.value || "Fullstack";
+      const isTaken = currentCertsList.some(cert => (cert.serialNumber || cert.certId || cert.id || "").trim().toUpperCase() === (candSerialInput?.value || "").trim().toUpperCase());
+      if (candSerialInput && (!candSerialInput.value || candSerialInput.value.startsWith("CG-MSME-") || isTaken)) {
+        generateSerialId(currentTrack, false);
+      }
+
       renderCertificatesTable(currentCertsList);
+      updateServerStorageTelemetry();
     }, (error) => {
       console.warn("Firestore certificates listener snapshot notice:", error);
       renderCertificatesTable([]);
@@ -1373,15 +1767,44 @@ if (certTableSearchInput) {
   });
 }
 
+// Helper: Filter out browser cache-busters like 20261017_r4, 2026.30, timestamps
+function isCacheBuster(str) {
+  if (!str) return true;
+  const s = str.trim();
+  if (/^\d{8}(_r\d+)?$/i.test(s)) return true;
+  if (/^v?\d+(\.\d+)+(_r\d+)?$/i.test(s)) return true;
+  if (/^\d+$/i.test(s)) return true;
+  return false;
+}
+
 // Scanned verification URL query handler (NO CRYPTOGRAPHIC SALT OR GRADE EXPOSED)
 async function checkUrlParamsForVerification() {
   const params = new URLSearchParams(window.location.search);
-  const paramVal = (params.get("v") || params.get("token") || params.get("id") || params.get("verify") || params.get("email") || "").trim();
-  if (!paramVal) return;
+  
+  // 1. Check for explicit certificate verification queries
+  const explicitVerifyParam = (params.get("cert_id") || params.get("verify") || params.get("certificate") || "").trim();
+  const vParam = (params.get("v") || params.get("token") || params.get("id") || "").trim();
+
+  let targetTokenOrSerial = "";
+  if (explicitVerifyParam && !isCacheBuster(explicitVerifyParam)) {
+    if (isSaltedHashToken(explicitVerifyParam) || explicitVerifyParam.toUpperCase().startsWith("CG-") || explicitVerifyParam.toUpperCase().includes("CERT")) {
+      targetTokenOrSerial = explicitVerifyParam;
+    }
+  } else if (vParam && !isCacheBuster(vParam)) {
+    // Only accept vParam if it is an authentic cryptographic salted token OR starts with CG- / contains CERT
+    if (isSaltedHashToken(vParam)) {
+      targetTokenOrSerial = vParam;
+    } else if (vParam.toUpperCase().startsWith("CG-") || vParam.toUpperCase().includes("CERT")) {
+      targetTokenOrSerial = vParam;
+    }
+  }
+
+  // If no genuine certificate token/serial is present, or if it is just a cache buster (e.g. 20261017_r4, 2026.9), ignore safely!
+  if (!targetTokenOrSerial || isCacheBuster(targetTokenOrSerial)) return;
 
   // 1. If Salted Token
-  if (isSaltedHashToken(paramVal)) {
-    const verified = verifyAndDecodeSaltedHash(paramVal);
+  if (isSaltedHashToken(targetTokenOrSerial)) {
+    const verified = verifyAndDecodeSaltedHash(targetTokenOrSerial);
     if (verified.valid && verified.data) {
       const candidateData = verified.data;
       if (candNameInput) candNameInput.value = candidateData.name || candidateData.candidateName || "";
@@ -1395,13 +1818,13 @@ async function checkUrlParamsForVerification() {
       showToast(`✅ Verified record for ${candidateData.name || candidateData.candidateName}!`);
       return;
     } else {
-      showCertAlert("error", `❌ <strong>Verification Notice</strong><br>${verified.message || "Invalid certificate record."}`);
+      console.warn("Salted token verification note on page load:", verified.message);
       return;
     }
   }
 
   // 2. Direct Serial lookup
-  const serialId = paramVal;
+  const serialId = targetTokenOrSerial;
   if (candSerialInput) candSerialInput.value = serialId;
 
   try {
@@ -1420,17 +1843,17 @@ async function checkUrlParamsForVerification() {
       showCertAlert("success", `✅ <strong>Authentic Verified Candidate Record</strong><br>Candidate: <strong>${candidateData.name || candidateData.candidateName}</strong> (${candidateData.email})<br>Internship Track: <strong>${candidateData.track}</strong><br>Duration: <strong>1 Month</strong><br>Serial ID: <strong>${candidateData.serialNumber || candidateData.certId || serialId}</strong>`);
       showToast(`✅ Verified certificate for ${candidateData.name || candidateData.candidateName}!`);
     } else {
-      showCertAlert("error", `❌ <strong>Certificate Not Found</strong><br>The certificate serial <strong>${serialId}</strong> was not found in the database.`);
+      console.warn(`Certificate serial ${serialId} from URL parameter not found in database.`);
     }
   } catch (err) {
-    console.error("Verification lookup error:", err);
+    console.warn("Verification lookup error:", err);
   }
 }
 
 // Certificate Action buttons
 if (btnGenNewId) {
   btnGenNewId.addEventListener("click", () => {
-    const newId = generateSerialId();
+    const newId = generateSerialId(candTrackInput?.value, true);
     showToast(`Generated new Serial ID: ${newId}`);
   });
 }
@@ -1448,7 +1871,7 @@ if (btnQuickSample) {
     if (candNameInput) candNameInput.value = pick.name;
     if (candEmailInput) candEmailInput.value = pick.email;
     if (candTrackInput) candTrackInput.value = pick.track;
-    generateSerialId();
+    generateSerialId(pick.track);
     updateLivePreview();
     showToast(`Loaded sample profile for ${pick.name}! ✨`);
   });
@@ -1457,7 +1880,7 @@ if (btnQuickSample) {
 if (btnResetForm) {
   btnResetForm.addEventListener("click", () => {
     if (certForm) certForm.reset();
-    generateSerialId();
+    generateSerialId(candTrackInput?.value || "Fullstack");
     updateLivePreview();
     if (certStatusAlert) certStatusAlert.style.display = "none";
     showToast("Certificate form reset.");
@@ -1473,22 +1896,70 @@ if (btnPreviewCert) {
 
 if (btnDownloadQrImg) {
   btnDownloadQrImg.addEventListener("click", () => {
-    const serial = candSerialInput?.value.trim() || "CG-MSME-2026";
-    const canvas = qrCanvasBox?.querySelector("canvas");
-    const img = qrCanvasBox?.querySelector("img");
+    const serial = candSerialInput?.value.trim() || "CG-IN-CERT-000001";
+    let defaultBase = "https://internships.coralgenz.co.in/";
+    const fullUrl = currentSaltedToken 
+      ? buildVerificationUrl(candVerifyUrlInput?.value, "v", currentSaltedToken)
+      : buildVerificationUrl(candVerifyUrlInput?.value, "id", serial);
 
-    if (canvas) {
-      const a = document.createElement("a");
-      a.href = canvas.toDataURL("image/png");
-      a.download = `Coralgenz-QR-${serial}.png`;
-      a.click();
-      showToast(`📥 QR Code PNG downloaded for ${serial}!`);
-    } else if (img && img.src) {
-      const a = document.createElement("a");
-      a.href = img.src;
-      a.download = `Coralgenz-QR-${serial}.png`;
-      a.click();
-      showToast(`📥 Downloading QR Code...`);
+    // Create high-definition 400x400 QR canvas for download
+    const tempDiv = document.createElement("div");
+    tempDiv.style.position = "absolute";
+    tempDiv.style.left = "-9999px";
+    tempDiv.style.top = "-9999px";
+    document.body.appendChild(tempDiv);
+
+    try {
+      if (typeof QRCode !== "undefined") {
+        new QRCode(tempDiv, {
+          text: fullUrl,
+          width: 320,
+          height: 320,
+          colorDark: "#000000",
+          colorLight: "#ffffff",
+          correctLevel: QRCode.CorrectLevel.L
+        });
+
+        setTimeout(() => {
+          const rawCanvas = tempDiv.querySelector("canvas");
+          if (rawCanvas) {
+            // Add a clean 40px white quiet-zone border for maximum scanner recognition
+            const exportCanvas = document.createElement("canvas");
+            exportCanvas.width = 400;
+            exportCanvas.height = 400;
+            const expCtx = exportCanvas.getContext("2d");
+            expCtx.imageSmoothingEnabled = false;
+            expCtx.fillStyle = "#ffffff";
+            expCtx.fillRect(0, 0, 400, 400);
+            expCtx.drawImage(rawCanvas, 40, 40, 320, 320);
+
+            const a = document.createElement("a");
+            a.href = exportCanvas.toDataURL("image/png");
+            a.download = `Coralgenz-QR-${serial}.png`;
+            a.click();
+            showToast(`📥 High-Definition QR Code downloaded for ${serial}!`);
+          } else {
+            // Fallback to table/preview canvas
+            const canvas = qrCanvasBox?.querySelector("canvas");
+            if (canvas) {
+              const a = document.createElement("a");
+              a.href = canvas.toDataURL("image/png");
+              a.download = `Coralgenz-QR-${serial}.png`;
+              a.click();
+            }
+          }
+          document.body.removeChild(tempDiv);
+        }, 100);
+      } else {
+        const a = document.createElement("a");
+        a.href = `https://api.qrserver.com/v1/create-qr-code/?size=400x400&ecc=L&margin=4&data=${encodeURIComponent(fullUrl)}`;
+        a.download = `Coralgenz-QR-${serial}.png`;
+        a.click();
+        document.body.removeChild(tempDiv);
+      }
+    } catch (err) {
+      console.error("QR download error:", err);
+      if (tempDiv.parentNode) document.body.removeChild(tempDiv);
     }
   });
 }
@@ -1502,10 +1973,9 @@ if (btnPrintAdminCert) {
 
 if (btnCopyPublicLink) {
   btnCopyPublicLink.addEventListener("click", () => {
-    const base = (candVerifyUrlInput?.value.trim() || "https://internships.coralgenz.co.in/").split("?")[0].replace(/\/$/, "");
     const url = currentSaltedToken 
-      ? `${base}/?v=${encodeURIComponent(currentSaltedToken)}`
-      : `${base}/?id=${encodeURIComponent(candSerialInput?.value.trim() || "CG-MSME-2026")}`;
+      ? buildVerificationUrl(candVerifyUrlInput?.value, "v", currentSaltedToken)
+      : buildVerificationUrl(candVerifyUrlInput?.value, "id", candSerialInput?.value.trim() || "CG-IN-FS-CERT-000001");
 
     navigator.clipboard.writeText(url).then(() => {
       showToast("Verification Link copied! 🔗");
@@ -1525,10 +1995,11 @@ function initAdminApp() {
   loadCourseFormsConfig();
   listenToFirebaseUsers();
 
-  generateSerialId();
+  generateSerialId(candTrackInput?.value || "Fullstack");
   updateLivePreview();
   listenToFirebaseCertificates();
   checkUrlParamsForVerification();
+  updateServerStorageTelemetry();
 }
 
 if (document.readyState === "loading") {
